@@ -1,6 +1,6 @@
 ## Un modèle cartographique pour intégrer les territoires périphériques avec R
 
-Ce notebook présente une solution technique pour créer un modèle cartographique harmonieux pour l'Europe, qui inclut les territoires périphériques europénes (DROM, Canaries, Madère, Açores) dans l'emprise principale du modèle cartographique. Il s'agit ici d'un cas d'usage avancé de la librairie [`mapinsetr`](https://github.com/riatelab/mapinsetr).
+Ce [notebook](https://rysebaert.github.io/map_template/) présente une solution technique pour créer un modèle cartographique harmonieux pour l'Europe, qui inclut les territoires périphériques europénes (DROM, Canaries, Madère, Açores) dans l'emprise principale du modèle cartographique. Il s'agit ici d'un cas d'usage avancé de la librairie [`mapinsetr`](https://github.com/riatelab/mapinsetr).
 
 ![](fig/fig_template.png)
 

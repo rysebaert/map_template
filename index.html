@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Ronan Ysebaert">
+<meta name="dcterms.date" content="2024-03-01">
+
+<title>Un modèle cartographique pour intégrer les territoires périphériques avec R</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="index_files/libs/clipboard/clipboard.min.js"></script>
+<script src="index_files/libs/quarto-html/quarto.js"></script>
+<script src="index_files/libs/quarto-html/popper.min.js"></script>
+<script src="index_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="index_files/libs/quarto-html/anchor.min.js"></script>
+<link href="index_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="index_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="index_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="index_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="index_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#paramétrage" id="toc-paramétrage" class="nav-link active" data-scroll-target="#paramétrage">Paramétrage</a>
+  <ul class="collapse">
+  <li><a href="#import-des-géométries-de-référence" id="toc-import-des-géométries-de-référence" class="nav-link" data-scroll-target="#import-des-géométries-de-référence">Import des géométries de référence</a></li>
+  <li><a href="#mapinsetr" id="toc-mapinsetr" class="nav-link" data-scroll-target="#mapinsetr">mapinsetr</a>
+  <ul class="collapse">
+  <li><a href="#paramétrage-1" id="toc-paramétrage-1" class="nav-link" data-scroll-target="#paramétrage-1">Paramétrage</a></li>
+  <li><a href="#création-des-masques" id="toc-création-des-masques" class="nav-link" data-scroll-target="#création-des-masques">Création des masques</a></li>
+  <li><a href="#gérer-les-projections-locales" id="toc-gérer-les-projections-locales" class="nav-link" data-scroll-target="#gérer-les-projections-locales">Gérer les projections locales</a></li>
+  <li><a href="#générer-les-insets" id="toc-générer-les-insets" class="nav-link" data-scroll-target="#générer-les-insets">Générer les insets</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#construction-du-modèle-cartographique" id="toc-construction-du-modèle-cartographique" class="nav-link" data-scroll-target="#construction-du-modèle-cartographique">Construction du modèle cartographique</a></li>
+  <li><a href="#cas-dusage-avec-des-données-eurostat" id="toc-cas-dusage-avec-des-données-eurostat" class="nav-link" data-scroll-target="#cas-dusage-avec-des-données-eurostat">Cas d’usage avec des données Eurostat</a>
+  <ul class="collapse">
+  <li><a href="#import-et-préparation-des-données" id="toc-import-et-préparation-des-données" class="nav-link" data-scroll-target="#import-et-préparation-des-données">Import et préparation des données</a></li>
+  <li><a href="#carte-finale" id="toc-carte-finale" class="nav-link" data-scroll-target="#carte-finale">Carte finale</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Un modèle cartographique pour intégrer les territoires périphériques avec R</h1>
+<p class="subtitle lead">Avec les librairies mapinsetr, giscoR, eurostat, sf et mapsf</p>
+</div>
+
+
+<div class="quarto-title-meta-author">
+  <div class="quarto-title-meta-heading">Author</div>
+  <div class="quarto-title-meta-heading">Affiliation</div>
+  
+    <div class="quarto-title-meta-contents">
+    <p class="author"><a href="https://rysebaert.github.io/climbing_paris/">Ronan Ysebaert</a> </p>
+  </div>
+    <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            <a href="https://riate.cnrs.fr/">
+            UAR RIATE, Université Paris Cité, CNRS
+            </a>
+          </p>
+      </div>
+    </div>
+
+<div class="quarto-title-meta">
+
+      
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">March 1, 2024</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<p>Les Départements et Régions d’Outre Mer (DROM), les Canaries, les Açores et Madère font partie intégrante de l’Union Européenne. Pourtant les utilisateurs de R se confrontent souvent à la difficulté de trouver une solution technique opérationnelle pour représenter ces territoires sur le même plan que ceux de l’Europe continentale. En témoigne la représentation cartographique de la <a href="https://ropengov.github.io/giscoR/">vignette</a> associée au librairie <code>giscoR</code>, qui permet l’import des couches géographiques de référence au niveau européen. Dans cette vignette la représentation cartographique est centrée sur l’Europe continentale, les territoires périphériques sont exclus de la représentation. Comment dépasser cette limitation technique forte de sens d’un point de vue politique ?</p>
+<p>Une solution existe grâce à la librairie <a href="https://github.com/riatelab/mapinsetr"><code>mapinsetr</code></a> et permet d’extraire sans trop de difficultés des territoires inclus dans des masques et de les translater dans le plan de la carte principale (<em>inset</em>). Nous montrons ici une procédure possible, qui conduit à la réalisation d’une carte du taux de chômage régional incluant <strong>l’ensemble des territoires européens</strong>.</p>
+<p>Une attention particulière est ici portée pour la réalisation d’un modèle cartographique, comprenant plusieurs couches d’habillage cartographique.</p>
+<p>Notons que ces programmes R ont permis la <a href="https://github.com/riatelab/map-templates">réalisation des modèles cartographiques</a> proposés par l’application de cartographie thématique <a href="http://magrit.cnrs.fr/">Magrit</a>.</p>
+<p>4 autres librairies sont ici mobilisées hormis <code>mapinsetr</code> et <code>giscoR</code>:</p>
+<ul>
+<li><code>sf</code> pour les opérations sur les géométries (reprojections, intersections, etc). La plupart des fonctions mobilisées dans <code>mapinsetr</code> reposent sur cette librairie.</li>
+<li><code>eurostat</code>, pour importer les données de référence au niveau européen.</li>
+<li><code>mapsf</code> pour les représentations cartographiques qui en découlent.</li>
+<li><code>reshape2</code>, à la marge, pour manipuler les tableaux de données qui proviennent de la librairie <code>eurostat</code>.</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(giscoR)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(eurostat)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">#devtools::install_github("riatelab/mapinsetr", force = TRUE)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mapinsetr)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mapsf)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(reshape2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="paramétrage" class="level1">
+<h1>Paramétrage</h1>
+<section id="import-des-géométries-de-référence" class="level2">
+<h2 class="anchored" data-anchor-id="import-des-géométries-de-référence">Import des géométries de référence</h2>
+<p>Les géométries de référence sont importées avec la librairie <code>giscoR</code>. La question se pose de la façon de procéder pour représenter les territoires ultra-périphériques, comme les DROM, Madère ou les Canaries de façon optimale dans un modèle cartographique.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">gisco_get_nuts</span>(<span class="at">epsg =</span> <span class="st">"3035"</span>,   <span class="at">nuts_level =</span> <span class="st">"2"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>, <span class="at">year =</span> <span class="st">"2021"</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+<p>Commençons par définir l’emprise spatiale de notre modèle cartographique. La fonction <code>locator()</code> est utile pour extraire les couples de coordonnées à partir d’un plot ou d’une carte. Sur une carte il s’agira du système de coordonnées géographiques de l’objet spatial importé, ici celui de référence de l’Union Européenne (ETRS89-extended / LAEA Europe, ESPG:3035)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Définition des limites du modèles cartographique</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>bbox <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(<span class="at">obj =</span> <span class="fu">c</span>(<span class="at">xmin =</span> <span class="dv">2300000</span>, <span class="at">ymin =</span> <span class="dv">1300000</span>,  <span class="at">xmax =</span> <span class="dv">6600000</span>, <span class="at">ymax =</span> <span class="dv">5500000</span>),</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                <span class="at">crs =</span> <span class="dv">3035</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>frame <span class="ot">&lt;-</span> <span class="fu">st_sf</span>(<span class="at">geom =</span> <span class="fu">st_as_sfc</span>(bbox))</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">col =</span> <span class="st">"peachpuff"</span>, <span class="at">border =</span> <span class="st">"white"</span>,<span class="at">add =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+<p>L’emprise spatiale apparaît adéquate pour focaliser la représentation cartographique sur les territoires de l’Europe continentale. Mais comment ne pas omettre nos territoires périphériques ?</p>
+</section>
+<section id="mapinsetr" class="level2">
+<h2 class="anchored" data-anchor-id="mapinsetr">mapinsetr</h2>
+<p>La librairie <a href="https://github.com/riatelab/mapinsetr"><code>mapinsetr</code></a> permet d’extraire, transformer et reprojeter des territoires ciblés, appelés <strong><em>insets</em></strong>.</p>
+<p>Pour réaliser un <em>inset</em>, plusieurs paramètres sont à définir :</p>
+<ul>
+<li>Créer un masque (<em>mask</em>) pour extraire les territoires d’intérêt. On peut éventuellement les reprojeter dans leur projection cartographique locale de référence.</li>
+<li>Créer un encart (<em>inset</em>) où seront présentés les territoires du masque. Ici nous souhaitons les repositionner le plus harmonieusement possible à l’Est des territoires européens.</li>
+<li>Fusionner le fond de carte d’origine et l’encart. Les territoires des encarts disposeront alors de nouvelles coordonnées géographiques pour apparaître dans le fond de carte principal.</li>
+</ul>
+<p>Dans notre cas de figure, cela nécessite une réflexion (et plusieurs tests !), qui avère être un compromis entre :</p>
+<ul>
+<li>L’emprise géographique réelle des territoires périphériques.</li>
+<li>Le fait que l’on souhaite un modèle cartographique harmonieux, où les encarts sont alignés, de taille comparable et régulièrement espacés.</li>
+</ul>
+<p>Le bloc de code ci-dessous est une proposition opérationnelle. Les encarts sont de largeur et longueur comparables (<code>box_area</code>) avec un espacement (<code>box_space</code>) similaire. Petite subtilité pour les Canaries, vu l’emprise de ce territoire l’emprise couvrira en largeur 2 <em>insets</em> + l’espacement entre les boîtes. <code>x_min</code> et <code>y_max</code> définit la localisation du bord supérieur gauche (ou le plus au nord et le plus à l’ouest dans le système de coordonnées européen) du premier encart.</p>
+<p>On peut aussi tout à fait générer ces paramètres dans un fichier tabulaire externe. Une feuille et un crayon étant généralement d’une aide précieuse pour réfléchir à la mise en place de ces paramètres !</p>
+<section id="paramétrage-1" class="level3">
+<h3 class="anchored" data-anchor-id="paramétrage-1">Paramétrage</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Nombre d'insets</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">9</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Préparer le tableau requis</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">matrix</span>(<span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">nrow =</span> n))</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(df) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"name"</span>) </span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Nom des territoires</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>name <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Canaries (ES)"</span>, <span class="st">"Madeire (PT)"</span>, <span class="st">"Açores (PT)"</span>, </span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Açores, Florès (PT)"</span>, <span class="st">"Guadeloupe (FR)"</span>, <span class="st">"Martinique (FR)"</span>, </span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>             <span class="st">"Réunion (FR)"</span>, <span class="st">"Guyane (FR)"</span>, <span class="st">"Mayotte (FR)"</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Masques (Coordonnées géographiques de la localisation en long/lat des territoires périphériques)</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>m_xmin <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">18.4</span>, <span class="sc">-</span><span class="fl">17.35</span>, <span class="sc">-</span><span class="fl">28.9</span>, <span class="sc">-</span><span class="fl">31.4</span>, <span class="sc">-</span><span class="fl">62.05</span>, <span class="sc">-</span><span class="fl">61.44</span>, <span class="fl">54.99</span>, <span class="sc">-</span><span class="fl">55.5</span>, <span class="fl">44.5</span>)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>m_ymin <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">27.4</span>, <span class="fl">32.55</span>, <span class="fl">36.8</span>, <span class="fl">39.3</span>, <span class="fl">15.64</span>, <span class="fl">14.19</span>, <span class="sc">-</span><span class="fl">21.61</span>, <span class="fl">1.8</span>, <span class="sc">-</span><span class="fl">13.5</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>m_xmax <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span> <span class="fl">13.3</span>, <span class="sc">-</span><span class="fl">16.2</span>, <span class="sc">-</span><span class="fl">24.8</span>, <span class="sc">-</span><span class="fl">30.9</span>, <span class="sc">-</span><span class="fl">60.99</span>, <span class="sc">-</span><span class="fl">60.6</span>, <span class="fl">56.06</span>, <span class="sc">-</span><span class="fl">50.8</span>, <span class="fl">45.8</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>m_ymax <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">29.5</span>, <span class="fl">33.2</span>, <span class="fl">40.2</span>, <span class="fl">39.8</span>, <span class="fl">16.71</span>, <span class="fl">15.09</span>, <span class="sc">-</span><span class="fl">20.64</span>, <span class="dv">6</span>, <span class="sc">-</span><span class="fl">12.2</span>)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>m_epsg <span class="ot">&lt;-</span> <span class="dv">4326</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>m_epsg_loc <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">3035</span>, <span class="dv">2191</span>, <span class="dv">3063</span>, <span class="dv">3063</span>, <span class="dv">5490</span>, <span class="dv">5490</span>, <span class="dv">2975</span>, <span class="dv">2972</span>, <span class="dv">4471</span>)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Insets ----</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Paramètres généraux des boîtes (2 colonnes * 4 boîtes régulièrement espacées) ----</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>box_area <span class="ot">&lt;-</span> <span class="dv">280000</span> <span class="co"># largeur / hauteur </span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>x_min <span class="ot">&lt;-</span> <span class="dv">5900000</span> <span class="co"># Xmin pour toutes les boîtes de la première colonne</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>y_max <span class="ot">&lt;-</span> <span class="dv">5100000</span> <span class="co"># Ymax (haut des boîtes)</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>box_space <span class="ot">&lt;-</span> <span class="dv">43000</span> <span class="co"># espace entre les boîtes</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Futur réceptacle des coordonnées des insets</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>i_xmin <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>i_ymin <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>i_xmax <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>i_ymax <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="co"># Canaries</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>xmin <span class="ot">&lt;-</span> x_min</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> (box_area <span class="sc">*</span> <span class="dv">2</span>) <span class="sc">+</span> box_space</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>ymax <span class="ot">&lt;-</span> y_max</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>ymin <span class="ot">&lt;-</span> ymax <span class="sc">-</span> box_area</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">1</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin, xmax, ymax)</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Madère</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>xmin <span class="ot">&lt;-</span> x_min</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> box_area</span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>ymax <span class="ot">&lt;-</span> ymin <span class="sc">-</span> box_space</span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>ymin <span class="ot">&lt;-</span> ymax <span class="sc">-</span> box_area</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">2</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin, xmax, ymax)</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a><span class="do">## Açores (main) ----</span></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>xmin <span class="ot">&lt;-</span> xmax <span class="sc">+</span> box_space</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> box_area</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">3</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin, xmax, ymax)</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a><span class="do">## Açores (second) ----</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> (.<span class="dv">3</span> <span class="sc">*</span> (xmax <span class="sc">-</span> xmin))</span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>ymin2 <span class="ot">&lt;-</span> ymax <span class="sc">-</span> (.<span class="dv">3</span> <span class="sc">*</span> (ymax <span class="sc">-</span> ymin))</span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">4</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin2, xmax, ymax)</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a><span class="do">## Guadeloupe ----</span></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>xmin <span class="ot">&lt;-</span> x_min</span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> box_area</span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>ymax <span class="ot">&lt;-</span> ymin <span class="sc">-</span> box_space</span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>ymin <span class="ot">&lt;-</span> ymax <span class="sc">-</span> box_area</span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">5</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin, xmax, ymax)</span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a><span class="do">## Martinique ----</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>xmin <span class="ot">&lt;-</span> xmax <span class="sc">+</span> box_space</span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> box_area </span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">6</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin, xmax, ymax)</span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a><span class="do">## Réunion ----</span></span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>xmin <span class="ot">&lt;-</span> x_min</span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> box_area</span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a>ymax <span class="ot">&lt;-</span> ymin <span class="sc">-</span> box_space</span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a>ymin <span class="ot">&lt;-</span> ymax <span class="sc">-</span> box_area</span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">7</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin, xmax, ymax)</span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a><span class="do">## Guyane ----</span></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a>xmin <span class="ot">&lt;-</span> xmax <span class="sc">+</span> box_space</span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> box_area</span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">8</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin, xmax, ymax)</span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a><span class="do">## Mayotte ----</span></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a>xmin <span class="ot">&lt;-</span> x_min <span class="sc">+</span> (box_area <span class="sc">/</span> <span class="dv">2</span>) </span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>xmax <span class="ot">&lt;-</span> xmin <span class="sc">+</span> box_area</span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a>ymax <span class="ot">&lt;-</span> ymin <span class="sc">-</span> box_space</span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a>ymin <span class="ot">&lt;-</span> ymax <span class="sc">-</span> box_area</span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a>df[<span class="dv">9</span>, <span class="fu">c</span>(<span class="dv">8</span><span class="sc">:</span><span class="dv">11</span>)] <span class="ot">&lt;-</span> <span class="fu">c</span>(xmin, ymin, xmax, ymax)</span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a><span class="co"># EPSG (inset)</span></span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>i_epsg <span class="ot">&lt;-</span> <span class="dv">3035</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Voici le tableau qui en résulte. Avec respectivement et pour chaque territoire cible :</p>
+<ul>
+<li><code>m_xmin</code>, <code>m_ymin</code>, <code>m_xmax</code>, <code>m_ymax</code>: les coordonnées géographiques (rectangulaires) des masques dans un système de coordonnées de référence explicite (<code>m_epsg</code>).</li>
+<li><code>m_epsg_loc</code> : la projection locale la plus adaptée pour ces territoires.</li>
+<li><code>i_xmin</code>, <code>i_ymin</code>, <code>i_xmax</code>, <code>i_ymax</code> : les coordonnées géographiques qui permettront le positionnement de ces territoires dans le modèle cartographique principal, dans un système de coordonnées de référence explicite (<code>i_epsg</code>).</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="table table-sm table-striped small">
+<colgroup>
+<col style="width: 19%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 10%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 6%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">name</th>
+<th style="text-align: right;">m_xmin</th>
+<th style="text-align: right;">m_ymin</th>
+<th style="text-align: right;">m_xmax</th>
+<th style="text-align: right;">m_ymax</th>
+<th style="text-align: right;">m_epsg</th>
+<th style="text-align: right;">m_epsg_loc</th>
+<th style="text-align: right;">i_xmin</th>
+<th style="text-align: right;">i_ymin</th>
+<th style="text-align: right;">i_xmax</th>
+<th style="text-align: right;">i_ymax</th>
+<th style="text-align: right;">i_epsg</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Canaries (ES)</td>
+<td style="text-align: right;">-18.40</td>
+<td style="text-align: right;">27.40</td>
+<td style="text-align: right;">-13.30</td>
+<td style="text-align: right;">29.50</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">3035</td>
+<td style="text-align: right;">5900000</td>
+<td style="text-align: right;">4820000</td>
+<td style="text-align: right;">6503000</td>
+<td style="text-align: right;">5100000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Madeire (PT)</td>
+<td style="text-align: right;">-17.35</td>
+<td style="text-align: right;">32.55</td>
+<td style="text-align: right;">-16.20</td>
+<td style="text-align: right;">33.20</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">2191</td>
+<td style="text-align: right;">5900000</td>
+<td style="text-align: right;">4497000</td>
+<td style="text-align: right;">6180000</td>
+<td style="text-align: right;">4777000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Açores (PT)</td>
+<td style="text-align: right;">-28.90</td>
+<td style="text-align: right;">36.80</td>
+<td style="text-align: right;">-24.80</td>
+<td style="text-align: right;">40.20</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">3063</td>
+<td style="text-align: right;">6223000</td>
+<td style="text-align: right;">4497000</td>
+<td style="text-align: right;">6503000</td>
+<td style="text-align: right;">4777000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Açores, Florès (PT)</td>
+<td style="text-align: right;">-31.40</td>
+<td style="text-align: right;">39.30</td>
+<td style="text-align: right;">-30.90</td>
+<td style="text-align: right;">39.80</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">3063</td>
+<td style="text-align: right;">6223000</td>
+<td style="text-align: right;">4693000</td>
+<td style="text-align: right;">6307000</td>
+<td style="text-align: right;">4777000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Guadeloupe (FR)</td>
+<td style="text-align: right;">-62.05</td>
+<td style="text-align: right;">15.64</td>
+<td style="text-align: right;">-60.99</td>
+<td style="text-align: right;">16.71</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">5490</td>
+<td style="text-align: right;">5900000</td>
+<td style="text-align: right;">4174000</td>
+<td style="text-align: right;">6180000</td>
+<td style="text-align: right;">4454000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Martinique (FR)</td>
+<td style="text-align: right;">-61.44</td>
+<td style="text-align: right;">14.19</td>
+<td style="text-align: right;">-60.60</td>
+<td style="text-align: right;">15.09</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">5490</td>
+<td style="text-align: right;">6223000</td>
+<td style="text-align: right;">4174000</td>
+<td style="text-align: right;">6503000</td>
+<td style="text-align: right;">4454000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Réunion (FR)</td>
+<td style="text-align: right;">54.99</td>
+<td style="text-align: right;">-21.61</td>
+<td style="text-align: right;">56.06</td>
+<td style="text-align: right;">-20.64</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">2975</td>
+<td style="text-align: right;">5900000</td>
+<td style="text-align: right;">3851000</td>
+<td style="text-align: right;">6180000</td>
+<td style="text-align: right;">4131000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Guyane (FR)</td>
+<td style="text-align: right;">-55.50</td>
+<td style="text-align: right;">1.80</td>
+<td style="text-align: right;">-50.80</td>
+<td style="text-align: right;">6.00</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">2972</td>
+<td style="text-align: right;">6223000</td>
+<td style="text-align: right;">3851000</td>
+<td style="text-align: right;">6503000</td>
+<td style="text-align: right;">4131000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Mayotte (FR)</td>
+<td style="text-align: right;">44.50</td>
+<td style="text-align: right;">-13.50</td>
+<td style="text-align: right;">45.80</td>
+<td style="text-align: right;">-12.20</td>
+<td style="text-align: right;">4326</td>
+<td style="text-align: right;">4471</td>
+<td style="text-align: right;">6040000</td>
+<td style="text-align: right;">3528000</td>
+<td style="text-align: right;">6320000</td>
+<td style="text-align: right;">3808000</td>
+<td style="text-align: right;">3035</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="création-des-masques" class="level3">
+<h3 class="anchored" data-anchor-id="création-des-masques">Création des masques</h3>
+<p>On crée une fonction pour transformer ce jeu de données de paramétrage avec des coordonnées géographiques (xmin, xmax, ymin, ymax) en objet géographique avec la fonction <code>make_poly</code>. La fonction requiert la projection utilisée pour spécifier ces coordonnées (crs) et optionnellement les noms des boîtes ainsi que leur projection locale optimale.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>make_poly <span class="ot">&lt;-</span> <span class="cf">function</span>(x, xmin, ymin, xmax, ymax, crs, <span class="at">epsg_loc =</span> <span class="cn">NULL</span>,</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>                      <span class="at">name =</span> <span class="cn">NULL</span>){</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Préparation fichier de sortie</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  out <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">matrix</span>(<span class="at">nrow =</span> <span class="dv">1</span>, <span class="at">ncol =</span> <span class="dv">2</span>))</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  out <span class="ot">&lt;-</span> <span class="fu">st_sf</span>(out, <span class="at">geometry =</span> <span class="fu">st_sfc</span>(<span class="fu">lapply</span>(<span class="dv">1</span>, <span class="cf">function</span>(x) <span class="fu">st_multipolygon</span>())))</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>(out)[<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>] <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"name"</span>, <span class="st">"epsg"</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_crs</span>(out) <span class="ot">&lt;-</span> crs</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Créer les polygones à partir des coordonnées spécifiées</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(x)){ </span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    bbox <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(<span class="at">obj =</span> <span class="fu">c</span>(<span class="at">xmin =</span> x[i, xmin], <span class="at">ymin =</span> x[i, ymin],</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>                            <span class="at">xmax =</span> x[i, xmax], <span class="at">ymax =</span> x[i, ymax]))</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    out[i,<span class="st">"geometry"</span>] <span class="ot">&lt;-</span> <span class="fu">st_as_sfc</span>(bbox)}</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Associer les attributs utiles</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  out<span class="sc">$</span>epsg <span class="ot">&lt;-</span> epsg_loc</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  out<span class="sc">$</span>name <span class="ot">&lt;-</span> name</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(out)</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Les masques recoupent bien nos territoires périphériques.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>mask <span class="ot">&lt;-</span> <span class="fu">make_poly</span>(<span class="at">x =</span> df,</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>                  <span class="at">xmin =</span> <span class="st">"m_xmin"</span>, <span class="at">ymin =</span> <span class="st">"m_ymin"</span>, <span class="at">xmax =</span> <span class="st">"m_xmax"</span>, <span class="at">ymax =</span> <span class="st">"m_ymax"</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                  <span class="at">crs =</span> <span class="fu">unique</span>(df<span class="sc">$</span>m_epsg),</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">epsg_loc =</span> df<span class="sc">$</span>m_epsg_loc)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(mask, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="st">"white"</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(<span class="fu">st_transform</span>(nuts, <span class="dv">4326</span>), <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+</section>
+<section id="gérer-les-projections-locales" class="level3">
+<h3 class="anchored" data-anchor-id="gérer-les-projections-locales">Gérer les projections locales</h3>
+<p>Chaque territoire est reprojeté dans sa projection locale de référence.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Exemple des Canaries</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>can_m <span class="ot">&lt;-</span> mask[<span class="dv">1</span>,]</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Entrée, Canaries en 4326</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>))</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(can_m, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="st">"white"</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(<span class="fu">st_transform</span>(nuts, <span class="dv">4326</span>), <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Prise en compte de la projection locale pour le masque et les territoires</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>can_m_proj <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(can_m, mask[<span class="dv">1</span>, <span class="st">"epsg"</span>, <span class="at">drop =</span> <span class="cn">TRUE</span>])</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>can_proj <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(nuts, mask[<span class="dv">1</span>, <span class="st">"epsg"</span>, <span class="at">drop =</span> <span class="cn">TRUE</span>])</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(can_m_proj, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="st">"white"</span>)</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(can_proj, <span class="at">add =</span> <span class="cn">TRUE</span>, <span class="at">border =</span> <span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+</section>
+<section id="générer-les-insets" class="level3">
+<h3 class="anchored" data-anchor-id="générer-les-insets">Générer les insets</h3>
+<p>Les <em>insets</em> sont positionnés dans le modèle cartographique principal. Nous avons ici décidé de les positionner sur la partie Est du modèle cartographique (en Russie). La légende des représentations de cartographie thématique à venir étant pensées pour se positionner à l’ouest du modèle, dans l’océan Atlantique.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>inset <span class="ot">&lt;-</span> <span class="fu">make_poly</span>(<span class="at">x =</span> df, <span class="at">name =</span> df<span class="sc">$</span>name,</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">xmin =</span> <span class="st">"i_xmin"</span>, <span class="at">ymin =</span> <span class="st">"i_ymin"</span>, <span class="at">xmax =</span> <span class="st">"i_xmax"</span>, <span class="at">ymax =</span> <span class="st">"i_ymax"</span>,</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">crs =</span> <span class="fu">unique</span>(df<span class="sc">$</span>i_epsg))</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>))</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>)</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(inset, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(inset, <span class="at">col =</span> <span class="st">"red"</span>)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_label</span>(inset, <span class="at">var =</span> <span class="st">"name"</span>, <span class="at">col =</span> <span class="st">"black"</span>, <span class="at">cex =</span> .<span class="dv">6</span>, <span class="at">halo =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+<p>Avec l’ensemble de ces paramètres, les territoires peuvent être finalement extrait et reprojeté dans l’<em>inset</em> préalablement défini grâce à la fonction <code>m_r</code>. Voici ce que cela donne avec les Canaries.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Les masques sont définis en 4326, on modifie donc la projection d'entrée</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>can_proj <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(can_proj, <span class="st">"MULTIPOLYGON"</span>) </span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>can_i <span class="ot">&lt;-</span> <span class="fu">m_r</span>(<span class="at">x =</span> can_proj, <span class="at">mask =</span> can_m_proj,  <span class="at">y =</span> inset[<span class="dv">1</span>,])</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>))</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(inset, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(can_i, <span class="at">col =</span> <span class="st">"white"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(inset, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="cn">NA</span>)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(can_i, <span class="at">col =</span> <span class="st">"white"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="construction-du-modèle-cartographique" class="level1">
+<h1>Construction du modèle cartographique</h1>
+<p>Après avoir décomposé les différentes étapes, repartons des géométries NUTS2 initiales.</p>
+<p>La fonction <code>multiple_m_r</code> est créée pour réaliser l’ensemble des étapes décrites ci-dessous à partir du fichier de paramètre. C’est en quelque sorte une évolution de la fonction <code>m_r</code>, cœur du librairie <code>mapinsetr</code>, qui le permet pour une seule boîte.</p>
+<p>La fonction prend en entrée :</p>
+<ul>
+<li><strong><code>x</code></strong> : la couche géographique d’entrée, correspondant ici aux différentes couches géographiques qui va constituer notre modèle cartographique (NUTS2, pays européens et du voisinage de l’Europe, villes européennes).</li>
+<li><strong><code>param</code></strong> : le fichier de paramètres décrit plus haut.</li>
+<li><strong><code>bind</code></strong> : si les <em>insets</em> doivent être fusionnés à <strong><code>x</code></strong> (TRUE) ou non (FALSE). Si <code>x = TRUE</code> il faut spécifier le nom de cette couche géographique.</li>
+<li><strong><code>frame</code></strong> : les limites de l’emprise du modèle cartographique. <code>x</code> sera intersectée avec l’emprise du <code>frame</code>.</li>
+<li><strong><code>return_k</code></strong> : la conséquence induite par l’extraction et le repositionnement des territoires dans le modèle sur leur surface initiale (rapport de surface).</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>multiple_m_r <span class="ot">&lt;-</span> <span class="cf">function</span>(x, param, <span class="at">bind =</span> <span class="cn">FALSE</span>, <span class="at">bind_layer =</span> <span class="cn">NULL</span>, frame, </span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>                         <span class="at">return_k =</span> <span class="cn">FALSE</span>){</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Renommage des fichiers</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> param</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  input <span class="ot">&lt;-</span> x</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Préparation du fichier de sortie</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  out <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">matrix</span>(<span class="at">nrow =</span> <span class="dv">1</span>, <span class="at">ncol =</span> <span class="fu">ncol</span>(x)<span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>(out) <span class="ot">&lt;-</span> <span class="fu">colnames</span>(x)[<span class="dv">1</span><span class="sc">:</span><span class="fu">ncol</span>(x)<span class="sc">-</span><span class="dv">1</span>]</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Gérer les différents types d'objet en entrée</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  type <span class="ot">&lt;-</span> <span class="fu">st_geometry_type</span>(x, <span class="at">by_geometry =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"MULTIPOLYGON"</span>, <span class="st">"GEOMETRY"</span>)){</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>     out <span class="ot">&lt;-</span> <span class="fu">st_sf</span>(out, <span class="at">geometry =</span> <span class="fu">st_sfc</span>(<span class="fu">lapply</span>(<span class="dv">1</span>, <span class="cf">function</span>(x) <span class="fu">st_multipolygon</span>())))</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  } <span class="co"># Si couche à extraire est de type polygone</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(type <span class="sc">==</span> <span class="st">"POINT"</span>){</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>     out <span class="ot">&lt;-</span> <span class="fu">st_sf</span>(out, <span class="at">geometry =</span> <span class="fu">st_sfc</span>(<span class="fu">lapply</span>(<span class="dv">1</span>, <span class="cf">function</span>(x) <span class="fu">st_point</span>())))</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>  } <span class="co"># Ou point</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Projection des xmin, xmax, ymin, ymax</span></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">st_crs</span>(out) <span class="ot">&lt;-</span> <span class="fu">unique</span>(df<span class="sc">$</span>i_epsg)</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Préparation du fichier de sortie si l'on souhaite en sortie le facteur R</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(return_k <span class="sc">==</span> <span class="cn">TRUE</span>){</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>      out <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">matrix</span>(<span class="at">nrow =</span> <span class="fu">nrow</span>(df), <span class="at">ncol =</span> <span class="dv">2</span>))</span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>      <span class="fu">colnames</span>(out) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">names</span>(df)[<span class="dv">1</span>], <span class="st">"k"</span>)</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>      out[, <span class="st">"name"</span>] <span class="ot">&lt;-</span> df[,<span class="st">"name"</span>]</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Reproduire l'ensemble des étapes utiles à l'extraction / reprojection</span></span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span> <span class="sc">:</span> <span class="fu">nrow</span>(df)){</span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Extraire la projection locale</span></span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>    epsg_loc <span class="ot">&lt;-</span> df[i, <span class="st">"m_epsg_loc"</span>]</span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Créer le masque à partir des paramètres</span></span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>    mask <span class="ot">&lt;-</span> <span class="fu">make_poly</span>(<span class="at">x =</span> df[i,], <span class="at">crs =</span> df[i, <span class="st">"m_epsg"</span>],</span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a>                      <span class="at">xmin =</span> <span class="st">"m_xmin"</span>, <span class="at">ymin =</span> <span class="st">"m_ymin"</span>, <span class="at">xmax =</span> <span class="st">"m_xmax"</span>, <span class="at">ymax =</span> <span class="st">"m_ymax"</span>)</span>
+<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Transformer la couche d'entrée dans la projection spécifiée (surtout utiles pour les pays du Monde)</span></span>
+<span id="cb11-38"><a href="#cb11-38" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(input, df[i, <span class="st">"m_epsg"</span>])</span>
+<span id="cb11-39"><a href="#cb11-39" aria-hidden="true" tabindex="-1"></a>    <span class="fu">st_agr</span>(x) <span class="ot">&lt;-</span> <span class="st">"constant"</span></span>
+<span id="cb11-40"><a href="#cb11-40" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Ne conserver que le voisinage du masque (200 km)</span></span>
+<span id="cb11-41"><a href="#cb11-41" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">st_intersection</span>(x, <span class="fu">st_buffer</span>(mask, <span class="dv">200000</span>))</span>
+<span id="cb11-42"><a href="#cb11-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Gestion des géométries</span></span>
+<span id="cb11-43"><a href="#cb11-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"MULTIPOLYGON"</span>, <span class="st">"GEOMETRY"</span>)){</span>
+<span id="cb11-44"><a href="#cb11-44" aria-hidden="true" tabindex="-1"></a>      x <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(x, <span class="st">"MULTIPOLYGON"</span>)</span>
+<span id="cb11-45"><a href="#cb11-45" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb11-46"><a href="#cb11-46" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Transformation dans la projection locale</span></span>
+<span id="cb11-47"><a href="#cb11-47" aria-hidden="true" tabindex="-1"></a>    mask <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(mask, epsg_loc)                </span>
+<span id="cb11-48"><a href="#cb11-48" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(x, epsg_loc)</span>
+<span id="cb11-49"><a href="#cb11-49" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Créer l'inset</span></span>
+<span id="cb11-50"><a href="#cb11-50" aria-hidden="true" tabindex="-1"></a>    inset <span class="ot">&lt;-</span> <span class="fu">make_poly</span>(<span class="at">x =</span> df[i,], <span class="at">crs =</span> df[i, <span class="st">"i_epsg"</span>],</span>
+<span id="cb11-51"><a href="#cb11-51" aria-hidden="true" tabindex="-1"></a>                       <span class="at">xmin =</span> <span class="st">"i_xmin"</span>, <span class="at">ymin =</span> <span class="st">"i_ymin"</span>, <span class="at">xmax =</span> <span class="st">"i_xmax"</span>, <span class="at">ymax =</span> <span class="st">"i_ymax"</span>)</span>
+<span id="cb11-52"><a href="#cb11-52" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Resize &amp; moove</span></span>
+<span id="cb11-53"><a href="#cb11-53" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span>(return_k <span class="sc">==</span> <span class="cn">FALSE</span>){</span>
+<span id="cb11-54"><a href="#cb11-54" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span>(<span class="fu">nrow</span>(x) <span class="sc">&gt;</span> <span class="dv">0</span>){</span>
+<span id="cb11-55"><a href="#cb11-55" aria-hidden="true" tabindex="-1"></a>        x <span class="ot">&lt;-</span> <span class="fu">m_r</span>(<span class="at">x =</span> x, <span class="at">mask =</span> mask, <span class="at">y =</span> inset, <span class="at">return_k =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb11-56"><a href="#cb11-56" aria-hidden="true" tabindex="-1"></a>        out <span class="ot">&lt;-</span> <span class="fu">rbind</span>(x, out)</span>
+<span id="cb11-57"><a href="#cb11-57" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb11-58"><a href="#cb11-58" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb11-59"><a href="#cb11-59" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Si l'on souhaite le facteur k</span></span>
+<span id="cb11-60"><a href="#cb11-60" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span>(return_k <span class="sc">==</span> <span class="cn">TRUE</span>){</span>
+<span id="cb11-61"><a href="#cb11-61" aria-hidden="true" tabindex="-1"></a>      x <span class="ot">&lt;-</span> <span class="fu">m_r</span>(<span class="at">x =</span> x, <span class="at">mask =</span> mask, <span class="at">y =</span> inset, <span class="at">return_k =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb11-62"><a href="#cb11-62" aria-hidden="true" tabindex="-1"></a>      out[i,<span class="st">"k"</span>] <span class="ot">&lt;-</span> x</span>
+<span id="cb11-63"><a href="#cb11-63" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb11-64"><a href="#cb11-64" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb11-65"><a href="#cb11-65" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Joindre ou non ces résultats à une couche de sortie</span></span>
+<span id="cb11-66"><a href="#cb11-66" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(bind <span class="sc">==</span> <span class="cn">TRUE</span>){</span>
+<span id="cb11-67"><a href="#cb11-67" aria-hidden="true" tabindex="-1"></a>    bind_layer <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(input, <span class="fu">unique</span>(df<span class="sc">$</span>i_epsg))</span>
+<span id="cb11-68"><a href="#cb11-68" aria-hidden="true" tabindex="-1"></a>    out <span class="ot">&lt;-</span> <span class="fu">rbind</span>(out, bind_layer)</span>
+<span id="cb11-69"><a href="#cb11-69" aria-hidden="true" tabindex="-1"></a>    <span class="fu">st_agr</span>(out) <span class="ot">&lt;-</span> <span class="st">"constant"</span></span>
+<span id="cb11-70"><a href="#cb11-70" aria-hidden="true" tabindex="-1"></a>    out <span class="ot">&lt;-</span> <span class="fu">st_intersection</span>(out, frame)</span>
+<span id="cb11-71"><a href="#cb11-71" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb11-72"><a href="#cb11-72" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(out)</span>
+<span id="cb11-73"><a href="#cb11-73" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Appliquons cette fameuse fonction à notre couche de NUTS2.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>input <span class="ot">&lt;-</span> <span class="fu">gisco_get_nuts</span>(<span class="at">epsg =</span> <span class="st">"3035"</span>,   <span class="at">nuts_level =</span> <span class="st">"2"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>,</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">year =</span> <span class="st">"2021"</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> input, <span class="at">param =</span> df, <span class="at">bind =</span> <span class="cn">TRUE</span>, <span class="at">frame =</span> frame)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">col =</span> <span class="st">"peachpuff"</span>, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> .<span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+<p>On peut mesurer l’effet provoqué par le redimensionnement des territoires concernés avec l’argument <code>return_k</code> : la Guyane correspond à 53 % de sa taille initiale. A l’inverse, Mayotte est agrandie de 194 %. Il est nécessaire de rappeler que ce type de modèle implique forcément une distorsion potentiellement importante de la surface réelle des territoires si leur surface est hétérogène et que l’on souhaite avoir des <em>insets</em> de taille à peu près identique, comme c’est le cas ici.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> input, <span class="at">param =</span> df, <span class="at">return_k =</span> <span class="cn">TRUE</span>) </span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>k</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                 name         k
+1       Canaries (ES) 0.7249161
+2        Madeire (PT) 2.5731255
+3         Açores (PT) 0.7409164
+4 Açores, Florès (PT) 1.4607432
+5     Guadeloupe (FR) 2.3487373
+6     Martinique (FR) 2.7892280
+7        Réunion (FR) 2.4970494
+8         Guyane (FR) 0.5351131
+9        Mayotte (FR) 1.9464522</code></pre>
+</div>
+</div>
+<p>Nous répétons l’opération effectuée pour les NUTS2 sur les villes européennes. Ce sont ici des points.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> <span class="fu">gisco_get_urban_audit</span>(<span class="at">cache =</span> <span class="cn">TRUE</span>, <span class="at">spatialtype =</span> <span class="st">"LB"</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> cities, <span class="at">param =</span> df, <span class="at">bind =</span> <span class="cn">TRUE</span>, <span class="at">frame =</span> frame)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Extraction de la géométrie des <em>insets</em> (boîtes).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>boxes <span class="ot">&lt;-</span> <span class="fu">make_poly</span>(df, <span class="at">crs =</span> <span class="fu">unique</span>(df<span class="sc">$</span>i_epsg),</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">xmin =</span> <span class="st">"i_xmin"</span>, <span class="at">ymin =</span> <span class="st">"i_ymin"</span>, <span class="at">xmax =</span> <span class="st">"i_xmax"</span>, <span class="at">ymax =</span> <span class="st">"i_ymax"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Quelques couches d’habillage pour embellir la carte (pays limitrophes) ne seraient pas de refus ! La procédure est identique, avec une autre couche géographique d’entrée. Pour des questions d’habillage (optimisation de la superposition des couches), nous n’allons pas joindre les sorties de la fonction <code>multiple_m_r</code> à la couche d’entrée.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>country <span class="ot">&lt;-</span> <span class="fu">gisco_get_countries</span>(<span class="at">year =</span> <span class="st">"2020"</span>, <span class="at">epsg =</span> <span class="st">"3035"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>country_box <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> country, <span class="at">param =</span> df, <span class="at">bind =</span> <span class="cn">FALSE</span>, <span class="at">frame =</span> frame)</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>country <span class="ot">&lt;-</span> <span class="fu">st_intersection</span>(country, frame)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Par quelques opérations sur les géométries, nous créons des couches géographiques supplémentaires: les frontières internationales et les traits de côte. Elles seront utiles pour embellir la carte à venir.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extraction frontières</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"borders.R"</span>) <span class="co"># fonction du librairie cartography</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>borders <span class="ot">&lt;-</span> <span class="fu">getBorders</span>(country)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>borders_box <span class="ot">&lt;-</span> <span class="fu">getBorders</span>(country_box)</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>borders <span class="ot">&lt;-</span> <span class="fu">rbind</span>(borders, borders_box)</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Trait de côte</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Extraction pour l'Europe continentale</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>coast <span class="ot">&lt;-</span> <span class="fu">st_union</span>(country)</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>coast <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(coast, <span class="st">"MULTILINESTRING"</span>)</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>frame_b <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(frame, <span class="st">"MULTILINESTRING"</span>)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>coast <span class="ot">&lt;-</span> <span class="fu">st_difference</span>(coast, frame_b)</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Et les boxes</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>coast2 <span class="ot">&lt;-</span> <span class="fu">st_union</span>(country_box)</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>coast2 <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(coast2, <span class="st">"MULTILINESTRING"</span>)</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>coast2 <span class="ot">&lt;-</span> <span class="fu">st_union</span>(coast, coast2)</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country, <span class="at">border =</span> <span class="cn">NA</span>)</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country_box, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(borders, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(coast, <span class="at">col =</span> <span class="st">"cornflowerblue"</span>, <span class="at">lwd =</span> .<span class="dv">5</span> , <span class="at">add =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+<p>Voici le modèle qui en résulte ! Nous utilisons ici les fonctionnalités de représentation de la librairie <a href="https://riatelab.github.io/mapsf/">mapsf</a>.</p>
+<p>Pour optimiser l’affichage de la carte (plein écran, sans marge) on utilise la fonction <code>mf_get_ratio</code> qui permet d’obtenir la largeur et la hauteur de l’emprise de la carte (à paramétrer dans les chunks). L’argument <code>expandBB</code> est utilisé pour supprimer les marges (4 % autour de la carte par défaut).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Voir les dimensions de la carte à partir du frame</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_get_ratio</span>(<span class="at">x =</span> frame, <span class="at">width =</span> <span class="dv">7</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 7.00 7.08</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_theme</span>(</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">bg =</span> <span class="st">"white"</span>, <span class="at">fg =</span> <span class="st">"black"</span>, <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>),</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">tab =</span> <span class="cn">TRUE</span>, <span class="at">inner =</span> <span class="cn">TRUE</span>, <span class="at">line =</span> <span class="fl">1.3</span>, <span class="at">cex =</span> <span class="fl">1.1</span>, <span class="at">font =</span> <span class="dv">2</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>), <span class="at">border =</span> <span class="cn">NA</span>)</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country_box, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">col =</span> <span class="st">"peachpuff"</span>, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> .<span class="dv">25</span>, <span class="at">add =</span> <span class="cn">TRUE</span>) <span class="co"># Future couche possible pour la représentation carto</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(cities, <span class="at">pch =</span> <span class="dv">21</span>, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">bg =</span> <span class="st">"red"</span>, <span class="at">cex =</span> .<span class="dv">2</span>, <span class="at">add =</span> <span class="cn">TRUE</span>) <span class="co"># Future couche possible pour la représentation carto</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(borders, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(coast, <span class="at">col =</span> <span class="st">"cornflowerblue"</span>, <span class="at">lwd =</span> .<span class="dv">5</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_credits</span>(<span class="st">"Source : Eurostat, GISCO, 2024"</span>)</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_scale</span>(<span class="at">size =</span> <span class="dv">500</span>)</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_title</span>(<span class="st">"Map template"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+<p>Pour condenser le code de représentations cartographiques futures qui appellent plusieurs couches géographiques, un peu à la façon d’un SIG, on peut condenser le code dans des fonctions.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Couches d'habillage sous la carte thématique</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>map_background <span class="ot">&lt;-</span> <span class="cf">function</span>(x){</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>), <span class="at">border =</span> <span class="cn">NA</span>)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(country, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(country_box, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Couches d'habillage sur la carte thématique</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>map_foreground <span class="ot">&lt;-</span> <span class="cf">function</span>(sources, title){</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(borders, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(coast, <span class="at">col =</span> <span class="st">"cornflowerblue"</span>, <span class="at">lwd =</span> .<span class="dv">5</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_credits</span>(<span class="at">txt =</span> sources)</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_scale</span>(<span class="at">size =</span> <span class="dv">500</span>)</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_title</span>(<span class="at">txt =</span> title)</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>La carte thématique mise en page avec notre modèle cartographique pourra alors être réalisée avec une longueur de code minimale.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Un code condensé pour une jolie carte</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map_background</span>()</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(<span class="at">x =</span> nuts, <span class="at">var =</span> <span class="st">"CNTR_CODE"</span>, <span class="at">type =</span> <span class="st">"typo"</span>, <span class="at">pal =</span> <span class="st">"Set 3"</span>, </span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">leg_pos =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="fu">map_foreground</span>(<span class="at">title =</span> <span class="st">"Les pays européens"</span>, <span class="at">source =</span> <span class="st">"Eurostat, GISCO, 2024"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+</section>
+<section id="cas-dusage-avec-des-données-eurostat" class="level1">
+<h1>Cas d’usage avec des données Eurostat</h1>
+<p>Une fois ce modèle préparé, on peut aisément le mobiliser avec des données socio-économiques en utilisant la librairie <a href="https://ropengov.github.io/eurostat/articles/eurostat_tutorial.html"><code>eurostat</code></a>, qui comme son nom le suggère, permet d’accéder au contenu de la base de données Eurostat. Nous allons ici l’appliquer au taux de chômage régional et à la population urbaine.</p>
+<section id="import-et-préparation-des-données" class="level2">
+<h2 class="anchored" data-anchor-id="import-et-préparation-des-données">Import et préparation des données</h2>
+<p>Une rapide exploration de l’organisation des <a href="https://ec.europa.eu/eurostat/fr/web/main/data/database">données mises à disposition par Eurostat</a> permet d’identifier le nom de la table d’intérêt. <img src="fig/fig-estat.png" class="img-fluid"></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(eurostat)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>id <span class="ot">&lt;-</span> <span class="st">"lfst_r_lfur2gac"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Nous récupérons les métadonnées associées à cette table. Elles serviront à l’habillage de la carte (référencement des sources)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>toc <span class="ot">&lt;-</span> <span class="fu">get_eurostat_toc</span>(<span class="at">lang =</span> <span class="st">"fr"</span>)</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>toc <span class="ot">&lt;-</span> toc[toc<span class="sc">$</span>code <span class="sc">==</span> id,]</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>title <span class="ot">&lt;-</span> toc<span class="sc">$</span>title[<span class="dv">1</span>]</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>last_update <span class="ot">&lt;-</span> toc<span class="sc">$</span>last.update.of.data[<span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Extraction de la table contenant les données. Elle contient plusieurs dimensions thématiques.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">get_eurostat</span>(<span class="at">id =</span> <span class="st">"lfst_r_lfur2gac"</span>, <span class="at">time_format =</span> <span class="st">"num"</span>, <span class="at">cache =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+indexed 0B in  0s, 0B/s
+indexed 1.00TB in  0s, 26.28TB/s
+                                                                              </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(df[,<span class="fu">c</span>(<span class="st">"freq"</span>, <span class="st">"unit"</span>, <span class="st">"c_birth"</span>, <span class="st">"sex"</span>, <span class="st">"age"</span>, <span class="st">"TIME_PERIOD"</span>)], unique)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$freq
+[1] "A"
+
+$unit
+[1] "PC"
+
+$c_birth
+[1] "EU27_2020_FOR"  "FOR"            "NAT"            "NEU27_2020_FOR"
+[5] "NRP"            "TOTAL"         
+
+$sex
+[1] "F" "M" "T"
+
+$age
+[1] "Y15-64" "Y15-74" "Y20-64" "Y25-54" "Y55-64"
+
+$TIME_PERIOD
+ [1] 1999 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013
+[16] 2014 2015 2016 2017 2018 2019 2020 2021 2022</code></pre>
+</div>
+</div>
+<p>On s’intéresse ici au taux de chômage, tout sexe confondu, pour une population âgée de 15 à 64 ans. Le data frame est filtré en conséquence.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>c_birth <span class="sc">==</span> <span class="st">"TOTAL"</span>,]</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>sex <span class="sc">==</span> <span class="st">"T"</span>,]</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>age <span class="sc">==</span> <span class="st">"Y15-64"</span>,]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Le data frame est redimensionné dans un format qui permettra la jointure attributaire avec le fond de carte de référence : identifiants uniques des régions européennes sur la première colonne, indicateur d’intérêt aux différentes dates disponibles sur le reste des colonnes.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Renommer les champs dates</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>TIME_PERIOD <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"Y_"</span>, df<span class="sc">$</span>TIME_PERIOD)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Reformater la table</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">dcast</span>(df, geo <span class="sc">~</span> TIME_PERIOD, <span class="at">value.var =</span> <span class="st">"values"</span>)</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Colonnes d'intérêt</span></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>var <span class="ot">&lt;-</span> <span class="fu">names</span>(df[<span class="dv">2</span><span class="sc">:</span><span class="fu">length</span>(df)])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>La jointure attributaire est réalisée. Nous avons dorénavant de quoi réaliser une belle carte thématique !</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">merge</span>(nuts, df, <span class="at">by.x =</span> <span class="st">"NUTS_ID"</span>, <span class="at">by.y =</span> <span class="st">"geo"</span>, <span class="at">all.x =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(nuts)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Simple feature collection with 6 features and 34 fields
+Geometry type: POLYGON
+Dimension:     XY
+Bounding box:  xmin: 4654777 ymin: 1900590 xmax: 5257241 ymax: 2889034
+Projected CRS: ETRS89-extended / LAEA Europe
+  NUTS_ID LEVL_CODE URBN_TYPE CNTR_CODE        NAME_LATN        NUTS_NAME
+1    AL01         2         0        AL             Veri             Veri
+2    AL02         2         0        AL           Qender           Qender
+3    AL03         2         0        AL              Jug              Jug
+4    AT11         2         0        AT       Burgenland       Burgenland
+5    AT12         2         0        AT Niederösterreich Niederösterreich
+6    AT13         2         0        AT             Wien             Wien
+  MOUNT_TYPE COAST_TYPE  FID  geo Y_1999 Y_2000 Y_2001 Y_2002 Y_2003 Y_2004
+1          0          0 AL01 AL01     NA     NA     NA     NA     NA     NA
+2          0          0 AL02 AL02     NA     NA     NA     NA     NA     NA
+3          0          0 AL03 AL03     NA     NA     NA     NA     NA     NA
+4          0          0 AT11 AT11    5.0    4.9    5.0    4.9    5.8    5.5
+5          0          0 AT12 AT12    4.4    4.1    3.3    4.7    4.0    4.6
+6          0          0 AT13 AT13    6.7    7.5    6.0    7.7    8.4   10.6
+  Y_2005 Y_2006 Y_2007 Y_2008 Y_2009 Y_2010 Y_2011 Y_2012 Y_2013 Y_2014 Y_2015
+1     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
+2     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
+3     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
+4    5.8    5.4    4.2    4.2    5.0    4.1    3.8    4.6    4.4    4.9    5.3
+5    4.8    4.5    4.1    3.8    4.7    4.0    4.6    4.6    5.0    5.2    5.3
+6   10.0    9.8    9.3    7.4    8.9    8.4    8.1    9.0    9.4   10.3   10.7
+  Y_2016 Y_2017 Y_2018 Y_2019 Y_2020 Y_2021 Y_2022
+1     NA     NA     NA     NA     NA     NA     NA
+2     NA     NA     NA     NA     NA     NA     NA
+3     NA     NA     NA     NA     NA     NA     NA
+4    5.8    5.3    4.2    3.7    4.2    5.2    4.3
+5    5.3    4.9    3.8    4.1    4.3    5.2    4.0
+6   11.5   10.5   10.1    9.4   10.8   12.2    9.4
+                        geometry
+1 POLYGON ((5148385 2216599, ...
+2 POLYGON ((5178239 2085654, ...
+3 POLYGON ((5257241 2015038, ...
+4 POLYGON ((4854633 2791782, ...
+5 POLYGON ((4802272 2876131, ...
+6 POLYGON ((4780682 2803584, ...</code></pre>
+</div>
+</div>
+<p>On souhaite que la représentation cartographique porte sur l’année la plus récente avec le moins de valeurs manquantes au vu du fond de carte de référence, ici le découpage NUTS2. Ce bloc de code permet d’extraire le nombre de valeur manquantes pour les indicateurs extraits précédemment d’Eurostat.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>nas <span class="ot">&lt;-</span> <span class="fu">sapply</span>(nuts[, var, <span class="at">drop =</span> T], </span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>             <span class="cf">function</span>(x) <span class="fu">sum</span>(<span class="fu">length</span>(<span class="fu">which</span>(<span class="fu">is.na</span>(x)))))</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>nas</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Y_1999 Y_2000 Y_2001 Y_2002 Y_2003 Y_2004 Y_2005 Y_2006 Y_2007 Y_2008 Y_2009 
+   100     98     91     87     83     79     65     45     37     37     38 
+Y_2010 Y_2011 Y_2012 Y_2013 Y_2014 Y_2015 Y_2016 Y_2017 Y_2018 Y_2019 Y_2020 
+    30     30     26     12     12     12      6      6      6      7     58 
+Y_2021 Y_2022 
+    71     74 </code></pre>
+</div>
+</div>
+<p>L’année la plus récente est l’année 2018.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>nas <span class="ot">&lt;-</span> nas[nas <span class="sc">==</span> <span class="fu">min</span>(nas)]</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>var <span class="ot">&lt;-</span> <span class="fu">names</span>(nas)[<span class="fu">length</span>(nas)]</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>var</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Y_2018"</code></pre>
+</div>
+</div>
+<p>Tout est prêt pour initier la représentation cartographique avec le modèle cartographique précédemment réalisé.</p>
+</section>
+<section id="carte-finale" class="level2">
+<h2 class="anchored" data-anchor-id="carte-finale">Carte finale</h2>
+<p>Voici une carte mise en page sur le taux de chômage avec les territoires périphériques !</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fond de carte avec différentes couches d'habillage</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map_background</span>()</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">var =</span> var, <span class="at">type =</span> <span class="st">"choro"</span>, <span class="at">pal =</span> <span class="st">"Heat 2"</span>, <span class="at">nbreaks =</span> <span class="dv">6</span>,</span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>, <span class="at">leg_title =</span> <span class="st">"Taux de chômage, 15-64 ans %"</span>,</span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>       <span class="at">leg_pos =</span> <span class="fu">c</span>(<span class="dv">2350000</span>, <span class="dv">4700000</span>), <span class="at">leg_no_data =</span> <span class="st">"Pas de données"</span>)</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a><span class="fu">map_foreground</span>(<span class="at">title =</span> <span class="fu">paste</span>(<span class="st">"Taux de chômage régional (NUTS2)"</span>, </span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>                             <span class="fu">substr</span>(var, <span class="dv">3</span>,<span class="dv">7</span>), <span class="at">sep =</span> <span class="st">" "</span>),</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>               <span class="at">sources =</span> <span class="fu">paste</span>(<span class="st">"Eurostat, GISCO, 2024 / Table"</span>, id, </span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>                                <span class="st">"/ Dernière mise à jour : "</span>, last_update, </span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>                               <span class="at">sep =</span> <span class="st">" "</span>))</span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Si on veut voir afficher les capitales</span></span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a>cap <span class="ot">&lt;-</span> cities[cities<span class="sc">$</span>CITY_CPTL <span class="sc">==</span> <span class="st">"Y"</span>,]</span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(cap, <span class="at">pch =</span> <span class="dv">21</span>, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">bg =</span> <span class="st">"black"</span>, <span class="at">cex =</span> .<span class="dv">6</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_label</span>(cap, <span class="at">var =</span> <span class="st">"URAU_NAME"</span>, <span class="at">halo =</span> <span class="cn">TRUE</span>, <span class="at">cex =</span> .<span class="dv">4</span>, <span class="at">pos =</span> <span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-30-1.png" class="img-fluid" style="width:100.0%"></p>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.1.2 (2021-11-01)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 22.04.3 LTS
+
+Matrix products: default
+BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.20.so
+
+locale:
+ [1] LC_CTYPE=fr_FR.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=fr_FR.UTF-8        LC_COLLATE=fr_FR.UTF-8    
+ [5] LC_MONETARY=fr_FR.UTF-8    LC_MESSAGES=fr_FR.UTF-8   
+ [7] LC_PAPER=fr_FR.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=fr_FR.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] reshape2_1.4.4  mapsf_0.8.0     mapinsetr_0.3.0 sf_1.0-15      
+[5] eurostat_4.0.0  giscoR_0.4.0   
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_1.0.11        lubridate_1.9.3    here_1.0.1         countrycode_1.5.0 
+ [5] tidyr_1.3.0        class_7.3-22       assertthat_0.2.1   rprojroot_2.0.4   
+ [9] digest_0.6.34      utf8_1.2.4         R6_2.5.1           cellranger_1.1.0  
+[13] plyr_1.8.9         httr2_1.0.0        backports_1.4.1    evaluate_0.23     
+[17] e1071_1.7-14       httr_1.4.7         pillar_1.9.0       rlang_1.1.3       
+[21] curl_5.2.0         readxl_1.4.3       rstudioapi_0.15.0  data.table_1.14.10
+[25] rmarkdown_2.25     RefManageR_1.4.0   readr_2.1.5        stringr_1.5.1     
+[29] ISOweek_0.6-2      htmlwidgets_1.6.4  bit_4.0.5          maplegend_0.1.0   
+[33] proxy_0.4-27       compiler_4.1.2     xfun_0.41          pkgconfig_2.0.3   
+[37] htmltools_0.5.7    tidyselect_1.2.0   tibble_3.2.1       regions_0.1.8     
+[41] fansi_1.0.6        withr_2.5.2        crayon_1.5.2       dplyr_1.1.4       
+[45] tzdb_0.4.0         wk_0.9.1           rappdirs_0.3.3     grid_4.1.2        
+[49] jsonlite_1.8.8     lifecycle_1.0.4    DBI_1.2.0          magrittr_2.0.3    
+[53] units_0.8-5        bibtex_0.5.1       KernSmooth_2.23-22 vroom_1.6.5       
+[57] cli_3.6.2          stringi_1.8.3      xml2_1.3.6         vctrs_0.6.5       
+[61] generics_0.1.3     geojsonsf_2.0.3    s2_1.1.6           tools_4.1.2       
+[65] bit64_4.0.5        glue_1.7.0         purrr_1.0.2        hms_1.1.3         
+[69] parallel_4.1.2     fastmap_1.1.1      yaml_2.3.8         timechange_0.2.0  
+[73] classInt_0.4-10    knitr_1.45        </code></pre>
+</div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

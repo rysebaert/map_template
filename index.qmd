@@ -1,0 +1,623 @@
+---
+title: "Un modèle cartographique pour intégrer les territoires périphériques avec R"
+subtitle: "Avec les librairies mapinsetr, giscoR, eurostat, sf et mapsf"
+execute:
+  warning: false
+date: "`r Sys.Date()`"  
+author:
+  - name: Ronan Ysebaert 
+    url: https://rysebaert.github.io/climbing_paris/
+    affiliation: UAR RIATE, Université Paris Cité, CNRS
+    affiliation-url: https://riate.cnrs.fr/
+format:
+  html:
+    toc: true
+    fontsize: 0.9em
+    css: "styles.css"
+    linkcolor: "#8631ad"
+knitr:
+  opts_chunk:
+    out.width: "100%"
+editor_options: 
+  chunk_output_type: console
+---
+
+Les Départements et Régions d'Outre Mer (DROM), les Canaries, les Açores et Madère font partie intégrante de l'Union Européenne. Pourtant les utilisateurs de R se confrontent souvent à la difficulté de trouver une solution technique opérationnelle pour représenter ces territoires sur le même plan que ceux de l'Europe continentale. En témoigne la représentation cartographique de la [vignette](https://ropengov.github.io/giscoR/) associée au librairie `giscoR`, qui permet l'import des couches géographiques de référence au niveau européen. Dans cette vignette la représentation cartographique est centrée sur l'Europe continentale, les territoires périphériques sont exclus de la représentation. Comment dépasser cette limitation technique forte de sens d'un point de vue politique ? 
+
+Une solution existe grâce à la librairie [`mapinsetr`](https://github.com/riatelab/mapinsetr) et permet d'extraire sans trop de difficultés des territoires inclus dans des masques et de les translater dans le plan de la carte principale (*inset*). Nous montrons ici une procédure possible, qui conduit à la réalisation d'une carte du taux de chômage régional incluant **l'ensemble des territoires européens**. 
+
+Une attention particulière est ici portée pour la réalisation d'un modèle cartographique, comprenant plusieurs couches d'habillage cartographique.  
+
+Notons que ces programmes R ont permis la [réalisation des modèles cartographiques](https://github.com/riatelab/map-templates) proposés par l'application de cartographie thématique [Magrit](http://magrit.cnrs.fr/). 
+
+4 autres librairies sont ici mobilisées hormis `mapinsetr` et `giscoR`:
+
+- `sf` pour les opérations sur les géométries (reprojections, intersections, etc). La plupart des fonctions mobilisées dans `mapinsetr` reposent sur cette librairie.
+- `eurostat`, pour importer les données de référence au niveau européen. 
+- `mapsf` pour les représentations cartographiques qui en découlent.
+- `reshape2`, à la marge, pour manipuler les tableaux de données qui proviennent de la librairie `eurostat`.
+
+```{r}
+library(giscoR)
+library(eurostat)
+library(sf)
+#devtools::install_github("riatelab/mapinsetr", force = TRUE)
+library(mapinsetr)
+library(mapsf)
+library(reshape2)
+```
+
+# Paramétrage
+
+## Import des géométries de référence
+
+Les géométries de référence sont importées avec la librairie `giscoR`. La question se pose de la façon de procéder pour représenter les territoires ultra-périphériques, comme les DROM, Madère ou les Canaries de façon optimale dans un modèle cartographique.
+
+```{r}
+nuts <- gisco_get_nuts(epsg = "3035",   nuts_level = "2", resolution = "20", year = "2021")
+mf_map(nuts)
+```
+
+Commençons par définir l'emprise spatiale de notre modèle cartographique. La fonction `locator()` est utile pour extraire les couples de coordonnées à partir d'un plot ou d'une carte. Sur une carte il s'agira du système de coordonnées géographiques de l'objet spatial importé, ici celui de référence de l'Union Européenne (ETRS89-extended / LAEA Europe, ESPG:3035)
+
+```{r}
+# Définition des limites du modèles cartographique
+bbox <- st_bbox(obj = c(xmin = 2300000, ymin = 1300000,  xmax = 6600000, ymax = 5500000),
+                crs = 3035)
+frame <- st_sf(geom = st_as_sfc(bbox))
+
+mf_map(frame, col = "lightblue")
+mf_map(nuts, col = "peachpuff", border = "white",add = TRUE)
+```
+
+L'emprise spatiale apparaît adéquate pour focaliser la représentation cartographique sur les territoires de l'Europe continentale. Mais comment ne pas omettre nos territoires périphériques ? 
+
+## mapinsetr
+
+La librairie [`mapinsetr`](https://github.com/riatelab/mapinsetr) permet d'extraire, transformer et reprojeter des territoires ciblés, appelés ***insets***. 
+
+Pour réaliser un *inset*, plusieurs paramètres sont à définir :
+
+- Créer un masque (*mask*) pour extraire les territoires d'intérêt. On peut éventuellement les reprojeter dans leur projection cartographique locale de référence. 
+- Créer un encart (*inset*) où seront présentés les territoires du masque. Ici nous souhaitons les repositionner le plus harmonieusement possible à l'Est des territoires européens. 
+- Fusionner le fond de carte d'origine et l'encart. Les territoires des encarts disposeront alors de nouvelles coordonnées géographiques pour apparaître dans le fond de carte principal. 
+
+Dans notre cas de figure, cela nécessite une réflexion (et plusieurs tests !), qui avère être un compromis entre :
+
+- L'emprise géographique réelle des territoires périphériques. 
+- Le fait que l'on souhaite un modèle cartographique harmonieux, où les encarts sont alignés, de taille comparable et régulièrement espacés. 
+
+Le bloc de code ci-dessous est une proposition opérationnelle. Les encarts sont de largeur et longueur comparables (`box_area`) avec un espacement (`box_space`) similaire. Petite subtilité pour les Canaries, vu l'emprise de ce territoire l'emprise couvrira en largeur 2 *insets* + l'espacement entre les boîtes. `x_min` et `y_max` définit la localisation du bord supérieur gauche (ou le plus au nord et le plus à l'ouest dans le système de coordonnées européen) du premier encart. 
+
+On peut aussi tout à fait générer ces paramètres dans un fichier tabulaire externe. Une feuille et un crayon étant généralement d'une aide précieuse pour réfléchir à la mise en place de ces paramètres ! 
+
+### Paramétrage
+
+```{r}
+# Nombre d'insets
+n <- 9
+
+# Préparer le tableau requis
+df <- data.frame(matrix(ncol = 1, nrow = n))
+names(df) <- c("name") 
+
+# Nom des territoires
+df$name <- c("Canaries (ES)", "Madeire (PT)", "Açores (PT)", 
+             "Açores, Florès (PT)", "Guadeloupe (FR)", "Martinique (FR)", 
+             "Réunion (FR)", "Guyane (FR)", "Mayotte (FR)")
+
+# Masques (Coordonnées géographiques de la localisation en long/lat des territoires périphériques)
+df$m_xmin <- c(-18.4, -17.35, -28.9, -31.4, -62.05, -61.44, 54.99, -55.5, 44.5)
+df$m_ymin <- c(27.4, 32.55, 36.8, 39.3, 15.64, 14.19, -21.61, 1.8, -13.5)
+df$m_xmax <- c(- 13.3, -16.2, -24.8, -30.9, -60.99, -60.6, 56.06, -50.8, 45.8)
+df$m_ymax <- c(29.5, 33.2, 40.2, 39.8, 16.71, 15.09, -20.64, 6, -12.2)
+df$m_epsg <- 4326
+df$m_epsg_loc <- c(3035, 2191, 3063, 3063, 5490, 5490, 2975, 2972, 4471)
+
+# Insets ----
+# Paramètres généraux des boîtes (2 colonnes * 4 boîtes régulièrement espacées) ----
+box_area <- 280000 # largeur / hauteur 
+x_min <- 5900000 # Xmin pour toutes les boîtes de la première colonne
+y_max <- 5100000 # Ymax (haut des boîtes)
+box_space <- 43000 # espace entre les boîtes
+
+# Futur réceptacle des coordonnées des insets
+df$i_xmin <- NA
+df$i_ymin <- NA
+df$i_xmax <- NA
+df$i_ymax <- NA
+
+# Canaries
+xmin <- x_min
+xmax <- xmin + (box_area * 2) + box_space
+ymax <- y_max
+ymin <- ymax - box_area
+df[1, c(8:11)] <- c(xmin, ymin, xmax, ymax)
+
+# Madère
+xmin <- x_min
+xmax <- xmin + box_area
+ymax <- ymin - box_space
+ymin <- ymax - box_area
+df[2, c(8:11)] <- c(xmin, ymin, xmax, ymax)
+
+## Açores (main) ----
+xmin <- xmax + box_space
+xmax <- xmin + box_area
+df[3, c(8:11)] <- c(xmin, ymin, xmax, ymax)
+
+## Açores (second) ----
+xmax <- xmin + (.3 * (xmax - xmin))
+ymin2 <- ymax - (.3 * (ymax - ymin))
+df[4, c(8:11)] <- c(xmin, ymin2, xmax, ymax)
+
+## Guadeloupe ----
+xmin <- x_min
+xmax <- xmin + box_area
+ymax <- ymin - box_space
+ymin <- ymax - box_area
+df[5, c(8:11)] <- c(xmin, ymin, xmax, ymax)
+
+## Martinique ----
+xmin <- xmax + box_space
+xmax <- xmin + box_area 
+df[6, c(8:11)] <- c(xmin, ymin, xmax, ymax)
+
+## Réunion ----
+xmin <- x_min
+xmax <- xmin + box_area
+ymax <- ymin - box_space
+ymin <- ymax - box_area
+df[7, c(8:11)] <- c(xmin, ymin, xmax, ymax)
+
+## Guyane ----
+xmin <- xmax + box_space
+xmax <- xmin + box_area
+df[8, c(8:11)] <- c(xmin, ymin, xmax, ymax)
+
+## Mayotte ----
+xmin <- x_min + (box_area / 2) 
+xmax <- xmin + box_area
+ymax <- ymin - box_space
+ymin <- ymax - box_area
+df[9, c(8:11)] <- c(xmin, ymin, xmax, ymax)
+
+# EPSG (inset)
+df$i_epsg <- 3035
+```
+
+Voici le tableau qui en résulte. Avec respectivement et pour chaque territoire cible :
+
+- `m_xmin`, `m_ymin`, `m_xmax`, `m_ymax`: les coordonnées géographiques (rectangulaires) des masques dans un système de coordonnées de référence explicite (`m_epsg`).
+- `m_epsg_loc` : la projection locale la plus adaptée pour ces territoires. 
+- `i_xmin`, `i_ymin`, `i_xmax`, `i_ymax` : les coordonnées géographiques qui permettront le positionnement de ces territoires dans le modèle cartographique principal, dans un système de coordonnées de référence explicite (`i_epsg`).
+ 
+```{r}
+knitr::kable(df)
+```
+
+### Création des masques
+
+On crée une fonction pour transformer ce jeu de données de paramétrage avec des coordonnées géographiques (xmin, xmax, ymin, ymax) en objet géographique avec la fonction `make_poly`. La fonction requiert la projection utilisée pour spécifier ces coordonnées (crs) et optionnellement les noms des boîtes ainsi que leur projection locale optimale. 
+
+```{r}
+make_poly <- function(x, xmin, ymin, xmax, ymax, crs, epsg_loc = NULL,
+                      name = NULL){
+  
+  # Préparation fichier de sortie
+  out <- data.frame(matrix(nrow = 1, ncol = 2))
+  out <- st_sf(out, geometry = st_sfc(lapply(1, function(x) st_multipolygon())))
+  colnames(out)[1:2] <- c("name", "epsg")
+  st_crs(out) <- crs
+  
+  # Créer les polygones à partir des coordonnées spécifiées
+  for (i in 1:nrow(x)){ 
+    bbox <- st_bbox(obj = c(xmin = x[i, xmin], ymin = x[i, ymin],
+                            xmax = x[i, xmax], ymax = x[i, ymax]))
+    out[i,"geometry"] <- st_as_sfc(bbox)}
+  
+  # Associer les attributs utiles
+  out$epsg <- epsg_loc
+  out$name <- name
+  
+  return(out)
+}
+```
+
+Les masques recoupent bien nos territoires périphériques. 
+
+```{r}
+mask <- make_poly(x = df,
+                  xmin = "m_xmin", ymin = "m_ymin", xmax = "m_xmax", ymax = "m_ymax",
+                  crs = unique(df$m_epsg),
+                  epsg_loc = df$m_epsg_loc)
+
+mf_map(mask, col = "red", border = "white")
+mf_map(st_transform(nuts, 4326), border = "white", add = TRUE)
+```
+
+### Gérer les projections locales
+
+Chaque territoire est reprojeté dans sa projection locale de référence.
+
+```{r}
+# Exemple des Canaries
+can_m <- mask[1,]
+
+# Entrée, Canaries en 4326
+par(mfrow = c(1,2))
+mf_map(can_m, col = "red", border = "white")
+mf_map(st_transform(nuts, 4326), border = NA, add = TRUE)
+
+# Prise en compte de la projection locale pour le masque et les territoires
+can_m_proj <- st_transform(can_m, mask[1, "epsg", drop = TRUE])
+can_proj <- st_transform(nuts, mask[1, "epsg", drop = TRUE])
+
+mf_map(can_m_proj, col = "red", border = "white")
+mf_map(can_proj, add = TRUE, border = NA)
+```
+
+### Générer les insets
+
+Les *insets* sont positionnés dans le modèle cartographique principal. Nous avons ici décidé de les positionner sur la partie Est du modèle cartographique (en Russie). La légende des représentations de cartographie thématique à venir étant pensées pour se positionner à l'ouest du modèle, dans l'océan Atlantique. 
+
+```{r}
+inset <- make_poly(x = df, name = df$name,
+                   xmin = "i_xmin", ymin = "i_ymin", xmax = "i_xmax", ymax = "i_ymax",
+                   crs = unique(df$i_epsg))
+
+par(mfrow = c(1,2))
+mf_map(frame, col = "lightblue")
+mf_map(inset, col = "red", add = TRUE)
+
+mf_map(inset, col = "red")
+mf_label(inset, var = "name", col = "black", cex = .6, halo = TRUE)
+```
+
+Avec l'ensemble de ces paramètres, les territoires peuvent être finalement extrait et reprojeté dans l'*inset* préalablement défini grâce à la fonction `m_r`. Voici ce que cela donne avec les Canaries. 
+
+```{r}
+# Les masques sont définis en 4326, on modifie donc la projection d'entrée
+can_proj <- st_cast(can_proj, "MULTIPOLYGON") 
+can_i <- m_r(x = can_proj, mask = can_m_proj,  y = inset[1,])
+
+par(mfrow = c(1,2))
+mf_map(frame)
+mf_map(inset, col = "red", border = NA, add = TRUE)
+mf_map(can_i, col = "white", border = NA, add = TRUE)
+
+mf_map(inset, col = "red", border = NA)
+mf_map(can_i, col = "white", border = NA, add = TRUE)
+```
+
+
+# Construction du modèle cartographique
+
+Après avoir décomposé les différentes étapes, repartons des géométries NUTS2 initiales. 
+
+La fonction `multiple_m_r` est créée pour réaliser l'ensemble des étapes décrites ci-dessous à partir du fichier de paramètre. C'est en quelque sorte une évolution de la fonction `m_r`, cœur du librairie `mapinsetr`, qui le permet pour une seule boîte. 
+
+La fonction prend en entrée :
+
+- **`x`** : la couche géographique d'entrée, correspondant ici aux différentes couches géographiques qui va constituer notre modèle cartographique (NUTS2, pays européens et du voisinage de l'Europe, villes européennes).
+- **`param`** : le fichier de paramètres décrit plus haut. 
+- **`bind`** : si les *insets* doivent être fusionnés à **`x`** (TRUE) ou non (FALSE). Si `x = TRUE` il faut spécifier le nom de cette couche géographique. 
+- **`frame`** : les limites de l'emprise du modèle cartographique. `x` sera intersectée avec l'emprise du `frame`.
+- **`return_k`** : la conséquence induite par l'extraction et le repositionnement des territoires dans le modèle sur leur surface initiale (rapport de surface).
+
+```{r}
+multiple_m_r <- function(x, param, bind = FALSE, bind_layer = NULL, frame, 
+                         return_k = FALSE){
+  # Renommage des fichiers
+  df <- param
+  input <- x
+  
+  # Préparation du fichier de sortie
+  out <- data.frame(matrix(nrow = 1, ncol = ncol(x)-1))
+  colnames(out) <- colnames(x)[1:ncol(x)-1]
+  
+  # Gérer les différents types d'objet en entrée
+  type <- st_geometry_type(x, by_geometry = FALSE)
+  if(type %in% c("MULTIPOLYGON", "GEOMETRY")){
+     out <- st_sf(out, geometry = st_sfc(lapply(1, function(x) st_multipolygon())))
+  } # Si couche à extraire est de type polygone
+  if(type == "POINT"){
+     out <- st_sf(out, geometry = st_sfc(lapply(1, function(x) st_point())))
+  } # Ou point
+  
+  # Projection des xmin, xmax, ymin, ymax
+  st_crs(out) <- unique(df$i_epsg)
+  
+  # Préparation du fichier de sortie si l'on souhaite en sortie le facteur R
+  if(return_k == TRUE){
+      out <- data.frame(matrix(nrow = nrow(df), ncol = 2))
+      colnames(out) <- c(names(df)[1], "k")
+      out[, "name"] <- df[,"name"]
+  }
+  
+  # Reproduire l'ensemble des étapes utiles à l'extraction / reprojection
+  for (i in 1 : nrow(df)){
+    # Extraire la projection locale
+    epsg_loc <- df[i, "m_epsg_loc"]
+    # Créer le masque à partir des paramètres
+    mask <- make_poly(x = df[i,], crs = df[i, "m_epsg"],
+                      xmin = "m_xmin", ymin = "m_ymin", xmax = "m_xmax", ymax = "m_ymax")
+    # Transformer la couche d'entrée dans la projection spécifiée (surtout utiles pour les pays du Monde)
+    x <- st_transform(input, df[i, "m_epsg"])
+    st_agr(x) <- "constant"
+    # Ne conserver que le voisinage du masque (200 km)
+    x <- st_intersection(x, st_buffer(mask, 200000))
+    # Gestion des géométries
+    if(type %in% c("MULTIPOLYGON", "GEOMETRY")){
+      x <- st_cast(x, "MULTIPOLYGON")
+    }
+    # Transformation dans la projection locale
+    mask <- st_transform(mask, epsg_loc)                
+    x <- st_transform(x, epsg_loc)
+    # Créer l'inset
+    inset <- make_poly(x = df[i,], crs = df[i, "i_epsg"],
+                       xmin = "i_xmin", ymin = "i_ymin", xmax = "i_xmax", ymax = "i_ymax")
+    # Resize & moove
+    if(return_k == FALSE){
+      if(nrow(x) > 0){
+        x <- m_r(x = x, mask = mask, y = inset, return_k = FALSE)
+        out <- rbind(x, out)
+      }
+    }
+    # Si l'on souhaite le facteur k
+    if(return_k == TRUE){
+      x <- m_r(x = x, mask = mask, y = inset, return_k = TRUE)
+      out[i,"k"] <- x
+    }
+  }
+    # Joindre ou non ces résultats à une couche de sortie
+  if(bind == TRUE){
+    bind_layer <- st_transform(input, unique(df$i_epsg))
+    out <- rbind(out, bind_layer)
+    st_agr(out) <- "constant"
+    out <- st_intersection(out, frame)
+    }
+  return(out)
+}
+```
+
+Appliquons cette fameuse fonction à notre couche de NUTS2.
+
+```{r}
+#| warning: false
+input <- gisco_get_nuts(epsg = "3035",   nuts_level = "2", resolution = "20",
+                       year = "2021")
+
+nuts <- multiple_m_r(x = input, param = df, bind = TRUE, frame = frame)
+mf_map(nuts, col = "peachpuff", border = "white", lwd = .5)
+```
+
+On peut mesurer l'effet provoqué par le redimensionnement des territoires concernés avec l'argument `return_k` :  la Guyane correspond à 53 % de sa taille initiale. A l'inverse, Mayotte est agrandie de 194 %. Il est nécessaire de rappeler que ce type de modèle implique forcément une distorsion potentiellement importante de la surface réelle des territoires si leur surface est hétérogène et que l'on souhaite avoir des *insets* de taille à peu près identique, comme c'est le cas ici.
+
+```{r}
+k <- multiple_m_r(x = input, param = df, return_k = TRUE) 
+k
+```
+
+Nous répétons l'opération effectuée pour les NUTS2 sur les villes européennes. Ce sont ici des points. 
+
+```{r}
+cities <- gisco_get_urban_audit(cache = TRUE, spatialtype = "LB")
+cities <- multiple_m_r(x = cities, param = df, bind = TRUE, frame = frame)
+```
+
+Extraction de la géométrie des *insets* (boîtes).
+
+```{r}
+boxes <- make_poly(df, crs = unique(df$i_epsg),
+                   xmin = "i_xmin", ymin = "i_ymin", xmax = "i_xmax", ymax = "i_ymax")
+```
+
+Quelques couches d'habillage pour embellir la carte (pays limitrophes) ne seraient pas de refus ! La procédure est identique, avec une autre couche géographique d'entrée. Pour des questions d'habillage (optimisation de la superposition des couches), nous n'allons pas joindre les sorties de la fonction `multiple_m_r` à la couche d'entrée. 
+
+```{r}
+country <- gisco_get_countries(year = "2020", epsg = "3035", resolution = "20")
+
+country_box <- multiple_m_r(x = country, param = df, bind = FALSE, frame = frame)
+country <- st_intersection(country, frame)
+```
+
+Par quelques opérations sur les géométries, nous créons des couches géographiques supplémentaires: les frontières internationales et les traits de côte. Elles seront utiles pour embellir la carte à venir.
+
+```{r}
+# Extraction frontières
+source("borders.R") # fonction du librairie cartography
+borders <- getBorders(country)
+borders_box <- getBorders(country_box)
+borders <- rbind(borders, borders_box)
+
+# Trait de côte
+# Extraction pour l'Europe continentale
+coast <- st_union(country)
+coast <- st_cast(coast, "MULTILINESTRING")
+frame_b <- st_cast(frame, "MULTILINESTRING")
+coast <- st_difference(coast, frame_b)
+# Et les boxes
+coast2 <- st_union(country_box)
+coast2 <- st_cast(coast2, "MULTILINESTRING")
+coast2 <- st_union(coast, coast2)
+
+mf_map(country, border = NA)
+mf_map(country_box, col = "red", border = NA, add = TRUE)
+mf_map(borders, border = "white", lwd = 1, add = TRUE)
+mf_map(coast, col = "cornflowerblue", lwd = .5 , add = TRUE)
+```
+
+Voici le modèle qui en résulte ! Nous utilisons ici les fonctionnalités de représentation de la librairie [mapsf](https://riatelab.github.io/mapsf/).
+
+Pour optimiser l'affichage de la carte (plein écran, sans marge) on utilise la fonction `mf_get_ratio` qui permet d’obtenir la largeur et la hauteur de l'emprise de la carte (à paramétrer dans les chunks). L'argument `expandBB` est utilisé pour supprimer les marges (4 % autour de la carte par défaut). 
+
+```{r}
+# Voir les dimensions de la carte à partir du frame
+mf_get_ratio(x = frame, width = 7, expandBB = rep(-.04, 4)) 
+```
+
+```{r}
+#| fig-width: 7
+#| fig-height: 6.84
+
+mf_theme(
+  bg = "white", fg = "black", mar = c(0, 0, 0, 0),
+  tab = TRUE, inner = TRUE, line = 1.3, cex = 1.1, font = 2
+)
+
+mf_map(frame, col = "lightblue", expandBB = rep(-.04, 4), border = NA)
+mf_map(country, col = "lightgrey", border = NA, add = TRUE)
+mf_map(boxes, col = "lightblue", border = NA, add = TRUE)
+mf_map(country_box, col = "lightgrey", border = NA, add = TRUE)
+mf_map(nuts, col = "peachpuff", border = "white", lwd = .25, add = TRUE) # Future couche possible pour la représentation carto
+mf_map(cities, pch = 21, col = NA, bg = "red", cex = .2, add = TRUE) # Future couche possible pour la représentation carto
+mf_map(borders, border = "white", lwd = 1, add = TRUE)
+mf_map(coast, col = "cornflowerblue", lwd = .5, add = TRUE)
+mf_map(boxes, col = NA, add = TRUE)
+mf_map(frame, col = NA, lwd = 1, add = TRUE)
+mf_credits("Source : Eurostat, GISCO, 2024")
+mf_scale(size = 500)
+mf_title("Map template")
+```
+
+Pour condenser le code de représentations cartographiques futures qui appellent plusieurs couches géographiques, un peu à la façon d'un SIG, on peut condenser le code dans des fonctions. 
+
+```{r}
+# Couches d'habillage sous la carte thématique
+map_background <- function(x){
+  mf_map(frame, col = "lightblue", expandBB = rep(-.04, 4), border = NA)
+  mf_map(country, col = "lightgrey", border = NA, add = TRUE)
+  mf_map(boxes, col = "lightblue", border = NA, add = TRUE)
+  mf_map(country_box, col = "lightgrey", border = NA, add = TRUE)
+}
+
+# Couches d'habillage sur la carte thématique
+map_foreground <- function(sources, title){
+  mf_map(borders, border = "white", lwd = 1, add = TRUE)
+  mf_map(coast, col = "cornflowerblue", lwd = .5, add = TRUE)
+  mf_map(boxes, col = NA, add = TRUE)
+  mf_map(frame, col = NA, lwd = 1, add = TRUE)
+  mf_credits(txt = sources)
+  mf_scale(size = 500)
+  mf_title(txt = title)
+}
+```
+
+La carte thématique mise en page avec notre modèle cartographique pourra alors être réalisée avec une longueur de code minimale.
+
+```{r}
+#| fig-width: 7
+#| fig-height: 6.84
+
+# Un code condensé pour une jolie carte
+map_background()
+mf_map(x = nuts, var = "CNTR_CODE", type = "typo", pal = "Set 3", 
+       border = "white", leg_pos = NA, add = TRUE)
+map_foreground(title = "Les pays européens", source = "Eurostat, GISCO, 2024")
+```
+
+
+# Cas d'usage avec des données Eurostat
+
+Une fois ce modèle préparé, on peut aisément le mobiliser avec des données socio-économiques en utilisant la librairie [`eurostat`](https://ropengov.github.io/eurostat/articles/eurostat_tutorial.html), qui comme son nom le suggère, permet d'accéder au contenu de la base de données Eurostat. Nous allons ici l'appliquer au taux de chômage régional et à la population urbaine. 
+
+
+## Import et préparation des données
+
+Une rapide exploration de l'organisation des [données mises à disposition par Eurostat](https://ec.europa.eu/eurostat/fr/web/main/data/database) permet d'identifier le nom de la table d'intérêt. 
+![](fig/fig-estat.png)
+
+```{r}
+library(eurostat)
+id <- "lfst_r_lfur2gac"
+```
+
+Nous récupérons les métadonnées associées à cette table. Elles serviront à l'habillage de la carte (référencement des sources)
+
+```{r}
+toc <- get_eurostat_toc(lang = "fr")
+toc <- toc[toc$code == id,]
+title <- toc$title[1]
+last_update <- toc$last.update.of.data[1]
+```
+
+Extraction de la table contenant les données. Elle contient plusieurs dimensions thématiques. 
+
+```{r}
+df <- get_eurostat(id = "lfst_r_lfur2gac", time_format = "num", cache = TRUE)
+sapply(df[,c("freq", "unit", "c_birth", "sex", "age", "TIME_PERIOD")], unique)
+```
+
+On s'intéresse ici au taux de chômage, tout sexe confondu, pour une population âgée de 15 à 64 ans. Le data frame est filtré en conséquence.  
+
+```{r}
+df <- df[df$c_birth == "TOTAL",]
+df <- df[df$sex == "T",]
+df <- df[df$age == "Y15-64",]
+```
+
+Le data frame est redimensionné dans un format qui permettra la jointure attributaire avec le fond de carte de référence : identifiants uniques des régions européennes sur la première colonne, indicateur d'intérêt aux différentes dates disponibles sur le reste des colonnes.   
+
+```{r}
+# Renommer les champs dates
+df$TIME_PERIOD <- paste0("Y_", df$TIME_PERIOD)
+
+# Reformater la table
+df <- dcast(df, geo ~ TIME_PERIOD, value.var = "values")
+
+# Colonnes d'intérêt
+var <- names(df[2:length(df)])
+```
+
+La jointure attributaire est réalisée. Nous avons dorénavant de quoi réaliser une belle carte thématique ! 
+
+```{r}
+nuts <- merge(nuts, df, by.x = "NUTS_ID", by.y = "geo", all.x = TRUE)
+head(nuts)
+```
+
+On souhaite que la représentation cartographique porte sur l'année la plus récente avec le moins de valeurs manquantes au vu du fond de carte de référence, ici le découpage NUTS2. Ce bloc de code permet d'extraire le nombre de valeur manquantes pour les indicateurs extraits précédemment d'Eurostat. 
+```{r}
+nas <- sapply(nuts[, var, drop = T], 
+             function(x) sum(length(which(is.na(x)))))
+nas
+```
+
+L'année la plus récente est l'année 2018. 
+```{r}
+nas <- nas[nas == min(nas)]
+var <- names(nas)[length(nas)]
+var
+```
+
+Tout est prêt pour initier la représentation cartographique avec le modèle cartographique précédemment réalisé. 
+
+## Carte finale
+
+Voici une carte mise en page sur le taux de chômage avec les territoires périphériques ! 
+
+```{r}
+#| fig-width: 7
+#| fig-height: 6.84
+
+# Fond de carte avec différentes couches d'habillage
+map_background()
+mf_map(nuts, var = var, type = "choro", pal = "Heat 2", nbreaks = 6,
+       border = NA, add = TRUE, leg_title = "Taux de chômage, 15-64 ans %",
+       leg_pos = c(2350000, 4700000), leg_no_data = "Pas de données")
+map_foreground(title = paste("Taux de chômage régional (NUTS2)", 
+                             substr(var, 3,7), sep = " "),
+               sources = paste("Eurostat, GISCO, 2024 / Table", id, 
+                                "/ Dernière mise à jour : ", last_update, 
+                               sep = " "))
+
+# Si on veut voir afficher les capitales
+cap <- cities[cities$CITY_CPTL == "Y",]
+mf_map(cap, pch = 21, col = NA, bg = "black", cex = .6, add = TRUE)
+mf_label(cap, var = "URAU_NAME", halo = TRUE, cex = .4, pos = 4)
+```
+
+```{r}
+sessionInfo()
+```

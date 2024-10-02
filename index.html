@@ -2,12 +2,12 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.3.450">
+<meta name="generator" content="quarto-1.5.56">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Ronan Ysebaert">
-<meta name="dcterms.date" content="2024-03-01">
+<meta name="dcterms.date" content="2024-10-02">
 
 <title>Un modèle cartographique pour intégrer les territoires périphériques avec R</title>
 <style>
@@ -24,7 +24,7 @@ ul.task-list li input[type="checkbox"] {
 }
 /* CSS for syntax highlighting */
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -35,7 +35,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
   { counter-reset: source-line 0; }
@@ -94,9 +94,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   </ul></li>
   <li><a href="#construction-du-modèle-cartographique" id="toc-construction-du-modèle-cartographique" class="nav-link" data-scroll-target="#construction-du-modèle-cartographique">Construction du modèle cartographique</a></li>
-  <li><a href="#cas-dusage-avec-des-données-eurostat" id="toc-cas-dusage-avec-des-données-eurostat" class="nav-link" data-scroll-target="#cas-dusage-avec-des-données-eurostat">Cas d’usage avec des données Eurostat</a>
+  <li><a href="#enrichissement-des-couches-géographiques-avec-des-données-eurostat" id="toc-enrichissement-des-couches-géographiques-avec-des-données-eurostat" class="nav-link" data-scroll-target="#enrichissement-des-couches-géographiques-avec-des-données-eurostat">Enrichissement des couches géographiques avec des données Eurostat</a>
   <ul class="collapse">
-  <li><a href="#import-et-préparation-des-données" id="toc-import-et-préparation-des-données" class="nav-link" data-scroll-target="#import-et-préparation-des-données">Import et préparation des données</a></li>
+  <li><a href="#application-aux-nuts" id="toc-application-aux-nuts" class="nav-link" data-scroll-target="#application-aux-nuts">Application aux NUTS</a></li>
   <li><a href="#carte-finale" id="toc-carte-finale" class="nav-link" data-scroll-target="#carte-finale">Carte finale</a></li>
   </ul></li>
   </ul>
@@ -118,14 +118,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div class="quarto-title-meta-contents">
     <p class="author"><a href="https://rysebaert.github.io/climbing_paris/">Ronan Ysebaert</a> </p>
   </div>
-    <div class="quarto-title-meta-contents">
+  <div class="quarto-title-meta-contents">
         <p class="affiliation">
             <a href="https://riate.cnrs.fr/">
             UAR RIATE, Université Paris Cité, CNRS
             </a>
           </p>
       </div>
-    </div>
+  </div>
 
 <div class="quarto-title-meta">
 
@@ -133,7 +133,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">March 1, 2024</p>
+      <p class="date">October 2, 2024</p>
     </div>
   </div>
   
@@ -141,7 +141,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </div>
   
 
+
 </header>
+
 
 <p>Les Départements et Régions d’Outre Mer (DROM), les Canaries, les Açores et Madère font partie intégrante de l’Union Européenne. Pourtant les utilisateurs de R se confrontent souvent à la difficulté de trouver une solution technique opérationnelle pour représenter ces territoires sur le même plan que ceux de l’Europe continentale. En témoigne la représentation cartographique de la <a href="https://ropengov.github.io/giscoR/">vignette</a> associée au librairie <code>giscoR</code>, qui permet l’import des couches géographiques de référence au niveau européen. Dans cette vignette la représentation cartographique est centrée sur l’Europe continentale, les territoires périphériques sont exclus de la représentation. Comment dépasser cette limitation technique forte de sens d’un point de vue politique ?</p>
 <p>Une solution existe grâce à la librairie <a href="https://github.com/riatelab/mapinsetr"><code>mapinsetr</code></a> et permet d’extraire sans trop de difficultés des territoires inclus dans des masques et de les translater dans le plan de la carte principale (<em>inset</em>). Nous montrons ici une procédure possible, qui conduit à la réalisation d’une carte du taux de chômage régional incluant <strong>l’ensemble des territoires européens</strong>.</p>
@@ -169,26 +171,36 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="import-des-géométries-de-référence">Import des géométries de référence</h2>
 <p>Les géométries de référence sont importées avec la librairie <code>giscoR</code>. La question se pose de la façon de procéder pour représenter les territoires ultra-périphériques, comme les DROM, Madère ou les Canaries de façon optimale dans un modèle cartographique.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">gisco_get_nuts</span>(<span class="at">epsg =</span> <span class="st">"3035"</span>,   <span class="at">nuts_level =</span> <span class="st">"2"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>, <span class="at">year =</span> <span class="st">"2021"</span>)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">gisco_get_nuts</span>(<span class="at">epsg =</span> <span class="st">"3035"</span>,   <span class="at">nuts_level =</span> <span class="dv">2</span>, <span class="at">resolution =</span> <span class="st">"20"</span>, <span class="at">year =</span> <span class="st">"2021"</span>, </span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">cache_dir =</span> <span class="st">"input"</span>, <span class="at">cache =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
+</div>
 </div>
 </div>
 <p>Commençons par définir l’emprise spatiale de notre modèle cartographique. La fonction <code>locator()</code> est utile pour extraire les couples de coordonnées à partir d’un plot ou d’une carte. Sur une carte il s’agira du système de coordonnées géographiques de l’objet spatial importé, ici celui de référence de l’Union Européenne (ETRS89-extended / LAEA Europe, ESPG:3035)</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Définition des limites du modèles cartographique</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>bbox <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(<span class="at">obj =</span> <span class="fu">c</span>(<span class="at">xmin =</span> <span class="dv">2300000</span>, <span class="at">ymin =</span> <span class="dv">1300000</span>,  <span class="at">xmax =</span> <span class="dv">6600000</span>, <span class="at">ymax =</span> <span class="dv">5500000</span>),</span>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Définition des limites du modèles cartographique (800 * 1000)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>bbox <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(<span class="at">obj =</span> <span class="fu">c</span>(<span class="at">xmin =</span> <span class="dv">1920000</span>, <span class="at">ymin =</span> <span class="dv">1300000</span>,  <span class="at">xmax =</span> <span class="dv">6600000</span>, <span class="at">ymax =</span> <span class="dv">5500000</span>),</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                <span class="at">crs =</span> <span class="dv">3035</span>)</span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>frame <span class="ot">&lt;-</span> <span class="fu">st_sf</span>(<span class="at">geom =</span> <span class="fu">st_as_sfc</span>(bbox))</span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>)</span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">col =</span> <span class="st">"peachpuff"</span>, <span class="at">border =</span> <span class="st">"white"</span>,<span class="at">add =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
 </div>
 </div>
-<p>L’emprise spatiale apparaît adéquate pour focaliser la représentation cartographique sur les territoires de l’Europe continentale. Mais comment ne pas omettre nos territoires périphériques ?</p>
+</div>
+<p>L’emprise spatiale apparaît adéquate pour focaliser la représentation cartographique sur les territoires de l’Europe continentale. Elle est pensée pour avoir une résolution de 800 * 1000 en hauteur / largeur et pour prévoir un espace à l’ouest de l’Europe qui sera utile pour positionner une légende à la carte à posteriori.</p>
+<p>Mais comment ne pas omettre nos territoires périphériques ?</p>
 </section>
 <section id="mapinsetr" class="level2">
 <h2 class="anchored" data-anchor-id="mapinsetr">mapinsetr</h2>
@@ -309,7 +321,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<table class="table table-sm table-striped small">
+<table class="caption-top table table-sm table-striped small">
 <colgroup>
 <col style="width: 19%">
 <col style="width: 6%">
@@ -508,7 +520,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(mask, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="st">"white"</span>)</span>
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(<span class="fu">st_transform</span>(nuts, <span class="dv">4326</span>), <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
+</div>
 </div>
 </div>
 </section>
@@ -531,7 +547,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(can_m_proj, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="st">"white"</span>)</span>
 <span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(can_proj, <span class="at">add =</span> <span class="cn">TRUE</span>, <span class="at">border =</span> <span class="cn">NA</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
+</div>
 </div>
 </div>
 </section>
@@ -550,7 +570,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(inset, <span class="at">col =</span> <span class="st">"red"</span>)</span>
 <span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_label</span>(inset, <span class="at">var =</span> <span class="st">"name"</span>, <span class="at">col =</span> <span class="st">"black"</span>, <span class="at">cex =</span> .<span class="dv">6</span>, <span class="at">halo =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
+</div>
 </div>
 </div>
 <p>Avec l’ensemble de ces paramètres, les territoires peuvent être finalement extrait et reprojeté dans l’<em>inset</em> préalablement défini grâce à la fonction <code>m_r</code>. Voici ce que cela donne avec les Canaries.</p>
@@ -567,7 +591,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(inset, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="cn">NA</span>)</span>
 <span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(can_i, <span class="at">col =</span> <span class="st">"white"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
+</div>
 </div>
 </div>
 </section>
@@ -662,19 +690,33 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <p>Appliquons cette fameuse fonction à notre couche de NUTS2.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>input <span class="ot">&lt;-</span> <span class="fu">gisco_get_nuts</span>(<span class="at">epsg =</span> <span class="st">"3035"</span>,   <span class="at">nuts_level =</span> <span class="st">"2"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>,</span>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>nuts2 <span class="ot">&lt;-</span> <span class="fu">gisco_get_nuts</span>(<span class="at">epsg =</span> <span class="st">"3035"</span>,   <span class="at">nuts_level =</span> <span class="st">"2"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>,</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">year =</span> <span class="st">"2021"</span>)</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> input, <span class="at">param =</span> df, <span class="at">bind =</span> <span class="cn">TRUE</span>, <span class="at">frame =</span> frame)</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">col =</span> <span class="st">"peachpuff"</span>, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> .<span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>nuts3 <span class="ot">&lt;-</span> <span class="fu">gisco_get_nuts</span>(<span class="at">epsg =</span> <span class="st">"3035"</span>,   <span class="at">nuts_level =</span> <span class="st">"3"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>                       <span class="at">year =</span> <span class="st">"2021"</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">rbind</span>(nuts2, nuts3)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> nuts, <span class="at">param =</span> df, <span class="at">bind =</span> <span class="cn">TRUE</span>, <span class="at">frame =</span> frame)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">col =</span> <span class="st">"peachpuff"</span>, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> .<span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
 </div>
+</div>
+</div>
+<p>Nous agrégeons les éventuelles unités doublonnées pour s’assurer d’un code unique.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(nuts, <span class="at">by =</span> <span class="fu">list</span>(<span class="at">NUTS_ID =</span> nuts<span class="sc">$</span>NUTS_ID),</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>                  <span class="at">FUN =</span> head, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>On peut mesurer l’effet provoqué par le redimensionnement des territoires concernés avec l’argument <code>return_k</code> : la Guyane correspond à 53 % de sa taille initiale. A l’inverse, Mayotte est agrandie de 194 %. Il est nécessaire de rappeler que ce type de modèle implique forcément une distorsion potentiellement importante de la surface réelle des territoires si leur surface est hétérogène et que l’on souhaite avoir des <em>insets</em> de taille à peu près identique, comme c’est le cas ici.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> input, <span class="at">param =</span> df, <span class="at">return_k =</span> <span class="cn">TRUE</span>) </span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>k</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>input <span class="ot">&lt;-</span> <span class="fu">gisco_get_nuts</span>(<span class="at">epsg =</span> <span class="st">"3035"</span>,   <span class="at">nuts_level =</span> <span class="st">"2"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>,</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">year =</span> <span class="st">"2021"</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> input, <span class="at">param =</span> df, <span class="at">return_k =</span> <span class="cn">TRUE</span>) </span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>k</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                 name         k
 1       Canaries (ES) 0.7249161
@@ -688,11 +730,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 9        Mayotte (FR) 1.9464522</code></pre>
 </div>
 </div>
-<p>Nous répétons l’opération effectuée pour les NUTS2 sur les villes européennes. Ce sont ici des points.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> <span class="fu">gisco_get_urban_audit</span>(<span class="at">cache =</span> <span class="cn">TRUE</span>, <span class="at">spatialtype =</span> <span class="st">"LB"</span>)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> cities, <span class="at">param =</span> df, <span class="at">bind =</span> <span class="cn">TRUE</span>, <span class="at">frame =</span> frame)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
 <p>Extraction de la géométrie des <em>insets</em> (boîtes).</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>boxes <span class="ot">&lt;-</span> <span class="fu">make_poly</span>(df, <span class="at">crs =</span> <span class="fu">unique</span>(df<span class="sc">$</span>i_epsg),</span>
@@ -700,310 +737,319 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <p>Quelques couches d’habillage pour embellir la carte (pays limitrophes) ne seraient pas de refus ! La procédure est identique, avec une autre couche géographique d’entrée. Pour des questions d’habillage (optimisation de la superposition des couches), nous n’allons pas joindre les sorties de la fonction <code>multiple_m_r</code> à la couche d’entrée.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>country <span class="ot">&lt;-</span> <span class="fu">gisco_get_countries</span>(<span class="at">year =</span> <span class="st">"2020"</span>, <span class="at">epsg =</span> <span class="st">"3035"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>)</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>country_box <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> country, <span class="at">param =</span> df, <span class="at">bind =</span> <span class="cn">FALSE</span>, <span class="at">frame =</span> frame)</span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>country <span class="ot">&lt;-</span> <span class="fu">st_intersection</span>(country, frame)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Par quelques opérations sur les géométries, nous créons des couches géographiques supplémentaires: les frontières internationales et les traits de côte. Elles seront utiles pour embellir la carte à venir.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extraction frontières</span></span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"borders.R"</span>) <span class="co"># fonction du librairie cartography</span></span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>borders <span class="ot">&lt;-</span> <span class="fu">getBorders</span>(country)</span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>borders_box <span class="ot">&lt;-</span> <span class="fu">getBorders</span>(country_box)</span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>borders <span class="ot">&lt;-</span> <span class="fu">rbind</span>(borders, borders_box)</span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Trait de côte</span></span>
-<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Extraction pour l'Europe continentale</span></span>
-<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>coast <span class="ot">&lt;-</span> <span class="fu">st_union</span>(country)</span>
-<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>coast <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(coast, <span class="st">"MULTILINESTRING"</span>)</span>
-<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>frame_b <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(frame, <span class="st">"MULTILINESTRING"</span>)</span>
-<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>coast <span class="ot">&lt;-</span> <span class="fu">st_difference</span>(coast, frame_b)</span>
-<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Et les boxes</span></span>
-<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>coast2 <span class="ot">&lt;-</span> <span class="fu">st_union</span>(country_box)</span>
-<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>coast2 <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(coast2, <span class="st">"MULTILINESTRING"</span>)</span>
-<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>coast2 <span class="ot">&lt;-</span> <span class="fu">st_union</span>(coast, coast2)</span>
-<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country, <span class="at">border =</span> <span class="cn">NA</span>)</span>
-<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country_box, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(borders, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(coast, <span class="at">col =</span> <span class="st">"cornflowerblue"</span>, <span class="at">lwd =</span> .<span class="dv">5</span> , <span class="at">add =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid" style="width:100.0%"></p>
-</div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>country <span class="ot">&lt;-</span> <span class="fu">gisco_get_countries</span>(<span class="at">year =</span> <span class="st">"2020"</span>, <span class="at">resolution =</span> <span class="st">"20"</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>country <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(country, <span class="dv">3035</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>country_box <span class="ot">&lt;-</span> <span class="fu">multiple_m_r</span>(<span class="at">x =</span> country, <span class="at">param =</span> df, <span class="at">bind =</span> <span class="cn">FALSE</span>, <span class="at">frame =</span> frame)</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>country <span class="ot">&lt;-</span> <span class="fu">st_intersection</span>(country, frame)</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>borders <span class="ot">&lt;-</span> cartography<span class="sc">::</span><span class="fu">getBorders</span>(country)</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>borders2 <span class="ot">&lt;-</span> cartography<span class="sc">::</span><span class="fu">getBorders</span>(country_box)</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>borders <span class="ot">&lt;-</span> <span class="fu">rbind</span>(borders, borders2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Voici le modèle qui en résulte ! Nous utilisons ici les fonctionnalités de représentation de la librairie <a href="https://riatelab.github.io/mapsf/">mapsf</a>.</p>
+<p>Nous extrayons enfin les capitales européennes à des fins d’habillage cartographique. Nous ne conservons pas les capitales des petits pays pour lesquels nous n’avons pas de données et celle qui se superposerait aux boîtes (Moscou).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rnaturalearth)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> <span class="fu">ne_download</span>(<span class="at">scale =</span> <span class="dv">110</span>, <span class="at">type =</span> <span class="st">"populated_places"</span>, <span class="at">category =</span> <span class="st">"cultural"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Reading layer `ne_110m_populated_places' from data source 
+  `C:\Users\Ronan\AppData\Local\Temp\RtmpKW3I8F\ne_110m_populated_places.shp' 
+  using driver `ESRI Shapefile'
+Simple feature collection with 243 features and 137 fields
+Geometry type: POINT
+Dimension:     XY
+Bounding box:  xmin: -175.2206 ymin: -41.29207 xmax: 179.2166 ymax: 64.14346
+Geodetic CRS:  WGS 84</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> <span class="fu">st_transform</span>(cities, <span class="dv">3035</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> <span class="fu">st_intersection</span>(cities, frame)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> cities[,<span class="st">"NAME"</span>]</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>cities <span class="ot">&lt;-</span> cities[<span class="sc">!</span>cities<span class="sc">$</span>NAME <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Vatican City"</span>,</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>                                     <span class="st">"San Marino"</span>,</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>                                     <span class="st">"Monaco"</span>,</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>                                     <span class="st">"Andorra"</span>,</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>                                     <span class="st">"Moscow"</span>,</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>                                     <span class="st">"The Hague"</span>,</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>                                     <span class="st">"Casablanca"</span>,</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>                                     <span class="st">"Istanbul"</span>),]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
 <p>Pour optimiser l’affichage de la carte (plein écran, sans marge) on utilise la fonction <code>mf_get_ratio</code> qui permet d’obtenir la largeur et la hauteur de l’emprise de la carte (à paramétrer dans les chunks). L’argument <code>expandBB</code> est utilisé pour supprimer les marges (4 % autour de la carte par défaut).</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Voir les dimensions de la carte à partir du frame</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_get_ratio</span>(<span class="at">x =</span> frame, <span class="at">width =</span> <span class="dv">7</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Voir les dimensions de la carte à partir du frame</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_get_ratio</span>(<span class="at">x =</span> frame, <span class="at">width =</span> <span class="dv">7</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 7.00 7.08</code></pre>
+<pre><code>[1] 7.00 6.54</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_theme</span>(</span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">bg =</span> <span class="st">"white"</span>, <span class="at">fg =</span> <span class="st">"black"</span>, <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>),</span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">tab =</span> <span class="cn">TRUE</span>, <span class="at">inner =</span> <span class="cn">TRUE</span>, <span class="at">line =</span> <span class="fl">1.3</span>, <span class="at">cex =</span> <span class="fl">1.1</span>, <span class="at">font =</span> <span class="dv">2</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>), <span class="at">border =</span> <span class="cn">NA</span>)</span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country_box, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">col =</span> <span class="st">"peachpuff"</span>, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> .<span class="dv">25</span>, <span class="at">add =</span> <span class="cn">TRUE</span>) <span class="co"># Future couche possible pour la représentation carto</span></span>
-<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(cities, <span class="at">pch =</span> <span class="dv">21</span>, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">bg =</span> <span class="st">"red"</span>, <span class="at">cex =</span> .<span class="dv">2</span>, <span class="at">add =</span> <span class="cn">TRUE</span>) <span class="co"># Future couche possible pour la représentation carto</span></span>
-<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(borders, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(coast, <span class="at">col =</span> <span class="st">"cornflowerblue"</span>, <span class="at">lwd =</span> .<span class="dv">5</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_credits</span>(<span class="st">"Source : Eurostat, GISCO, 2024"</span>)</span>
-<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_scale</span>(<span class="at">size =</span> <span class="dv">500</span>)</span>
-<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_title</span>(<span class="st">"Map template"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>))</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_theme</span>(</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">bg =</span> <span class="st">"white"</span>, <span class="at">fg =</span> <span class="st">"black"</span>, <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>),</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">tab =</span> <span class="cn">TRUE</span>, <span class="at">inner =</span> <span class="cn">TRUE</span>, <span class="at">line =</span> <span class="fl">1.3</span>, <span class="at">cex =</span> <span class="fl">1.1</span>, <span class="at">font =</span> <span class="dv">2</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>), <span class="at">border =</span> <span class="cn">NA</span>)</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(country_box, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">col =</span> <span class="st">"peachpuff"</span>, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> .<span class="dv">25</span>, <span class="at">add =</span> <span class="cn">TRUE</span>) <span class="co"># Future couche possible pour la</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a><span class="co">#représentation carto</span></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(borders, <span class="at">col =</span> <span class="st">"white"</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(cities, <span class="at">pch =</span> <span class="dv">21</span>, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">bg =</span> <span class="st">"black"</span>, <span class="at">cex =</span> .<span class="dv">4</span>, <span class="at">add =</span> <span class="cn">TRUE</span>) <span class="co"># Future couche possible pour la</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a><span class="co">#représentation carto</span></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_label</span>(cities, <span class="at">var =</span> <span class="st">"NAME"</span>, <span class="at">halo =</span> <span class="cn">TRUE</span>, <span class="at">cex =</span> .<span class="dv">4</span>, <span class="at">pos =</span> <span class="dv">2</span>)</span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_credits</span>(<span class="st">"Source : Eurostat, GISCO, 2024"</span>)</span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_scale</span>(<span class="at">size =</span> <span class="dv">500</span>)</span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_title</span>(<span class="st">"Map template"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
+</div>
 </div>
 </div>
 <p>Pour condenser le code de représentations cartographiques futures qui appellent plusieurs couches géographiques, un peu à la façon d’un SIG, on peut condenser le code dans des fonctions.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Couches d'habillage sous la carte thématique</span></span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>map_background <span class="ot">&lt;-</span> <span class="cf">function</span>(x){</span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>), <span class="at">border =</span> <span class="cn">NA</span>)</span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(country, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(country_box, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Couches d'habillage sur la carte thématique</span></span>
-<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>map_foreground <span class="ot">&lt;-</span> <span class="cf">function</span>(sources, title){</span>
-<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(borders, <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(coast, <span class="at">col =</span> <span class="st">"cornflowerblue"</span>, <span class="at">lwd =</span> .<span class="dv">5</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_credits</span>(<span class="at">txt =</span> sources)</span>
-<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_scale</span>(<span class="at">size =</span> <span class="dv">500</span>)</span>
-<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_title</span>(<span class="at">txt =</span> title)</span>
-<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Couches d'habillage sous la carte thématique</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>map_background <span class="ot">&lt;-</span> <span class="cf">function</span>(x){</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">expandBB =</span> <span class="fu">rep</span>(<span class="sc">-</span>.<span class="dv">04</span>, <span class="dv">4</span>), <span class="at">border =</span> <span class="cn">NA</span>)</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(country, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="st">"lightblue"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(country_box, <span class="at">col =</span> <span class="st">"lightgrey"</span>, <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Couches d'habillage sur la carte thématique</span></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>map_foreground <span class="ot">&lt;-</span> <span class="cf">function</span>(sources, title){</span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(borders, <span class="at">col =</span> <span class="st">"white"</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(boxes, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_map</span>(frame, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">lwd =</span> <span class="dv">1</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_credits</span>(<span class="at">txt =</span> sources)</span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_scale</span>(<span class="at">size =</span> <span class="dv">500</span>)</span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mf_title</span>(<span class="at">txt =</span> title)</span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>La carte thématique mise en page avec notre modèle cartographique pourra alors être réalisée avec une longueur de code minimale.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Un code condensé pour une jolie carte</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map_background</span>()</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(<span class="at">x =</span> nuts, <span class="at">var =</span> <span class="st">"CNTR_CODE"</span>, <span class="at">type =</span> <span class="st">"typo"</span>, <span class="at">pal =</span> <span class="st">"Set 3"</span>, </span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">leg_pos =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="fu">map_foreground</span>(<span class="at">title =</span> <span class="st">"Les pays européens"</span>, <span class="at">source =</span> <span class="st">"Eurostat, GISCO, 2024"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Un code condensé pour une jolie carte</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map_background</span>()</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(<span class="at">x =</span> nuts, <span class="at">var =</span> <span class="st">"CNTR_CODE"</span>, <span class="at">type =</span> <span class="st">"typo"</span>, <span class="at">pal =</span> <span class="st">"Set 3"</span>, </span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="st">"white"</span>, <span class="at">leg_pos =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="fu">map_foreground</span>(<span class="at">title =</span> <span class="st">"Les pays européens"</span>, <span class="at">source =</span> <span class="st">"Eurostat, GISCO, 2024"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
+</div>
 </div>
 </div>
 </section>
-<section id="cas-dusage-avec-des-données-eurostat" class="level1">
-<h1>Cas d’usage avec des données Eurostat</h1>
-<p>Une fois ce modèle préparé, on peut aisément le mobiliser avec des données socio-économiques en utilisant la librairie <a href="https://ropengov.github.io/eurostat/articles/eurostat_tutorial.html"><code>eurostat</code></a>, qui comme son nom le suggère, permet d’accéder au contenu de la base de données Eurostat. Nous allons ici l’appliquer au taux de chômage régional et à la population urbaine.</p>
-<section id="import-et-préparation-des-données" class="level2">
-<h2 class="anchored" data-anchor-id="import-et-préparation-des-données">Import et préparation des données</h2>
-<p>Une rapide exploration de l’organisation des <a href="https://ec.europa.eu/eurostat/fr/web/main/data/database">données mises à disposition par Eurostat</a> permet d’identifier le nom de la table d’intérêt. <img src="fig/fig-estat.png" class="img-fluid"></p>
+<section id="enrichissement-des-couches-géographiques-avec-des-données-eurostat" class="level1">
+<h1>Enrichissement des couches géographiques avec des données Eurostat</h1>
+<p>Une fois ce modèle préparé, on peut aisément le mobiliser avec des données socio-économiques en utilisant la librairie <a href="https://ropengov.github.io/eurostat/articles/eurostat_tutorial.html"><code>eurostat</code></a>, qui comme son nom le suggère, permet d’accéder au contenu de la base de données Eurostat.</p>
+<p>Nous allons ici l’appliquer pour en enrichir les couches géographiques NUTS3, NUTS2 et des villes avec des données de population et de surface.</p>
+<p>Une rapide exploration de l’organisation des <a href="https://ec.europa.eu/eurostat/fr/web/main/data/database">données mises à disposition par Eurostat</a> permet d’identifier le nom des tables Eurostat d’intérêt : <code>reg_area3</code> pour la surface et <code>demo_r_pjanaggr3</code> pour la surface totale. <img src="fig/fig-estat.png" class="img-fluid"></p>
+<p>Il n’y a pas une méthode unique pour appareiller des données Eurostat à une couche géographique de référence.</p>
+<p>L’idée générale proposée ici consiste à filtrer les dimensions de la table Eurostat pour aboutir à l’indicateur souhaité et passé au format long : les lignes correspondant aux unités territoriales et les colonnes aux différentes années de référence disponibles dans la table.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(eurostat)</span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>id <span class="ot">&lt;-</span> <span class="st">"lfst_r_lfur2gac"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Nous récupérons les métadonnées associées à cette table. Elles serviront à l’habillage de la carte (référencement des sources)</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>toc <span class="ot">&lt;-</span> <span class="fu">get_eurostat_toc</span>(<span class="at">lang =</span> <span class="st">"fr"</span>)</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>toc <span class="ot">&lt;-</span> toc[toc<span class="sc">$</span>code <span class="sc">==</span> id,]</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>title <span class="ot">&lt;-</span> toc<span class="sc">$</span>title[<span class="dv">1</span>]</span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>last_update <span class="ot">&lt;-</span> toc<span class="sc">$</span>last.update.of.data[<span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Extraction de la table contenant les données. Elle contient plusieurs dimensions thématiques.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">get_eurostat</span>(<span class="at">id =</span> <span class="st">"lfst_r_lfur2gac"</span>, <span class="at">time_format =</span> <span class="st">"num"</span>, <span class="at">cache =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(eurostat)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">get_eurostat</span>(<span class="st">"reg_area3"</span>, <span class="at">time_format =</span> <span class="st">"num"</span>) <span class="co"># Telecharger la table ESTAT</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 indexed 0B in  0s, 0B/s
-indexed 1.00TB in  0s, 26.28TB/s
+indexed 2.15GB in  0s, 2.15GB/s
                                                                               </code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(df[,<span class="fu">c</span>(<span class="st">"freq"</span>, <span class="st">"unit"</span>, <span class="st">"c_birth"</span>, <span class="st">"sex"</span>, <span class="st">"age"</span>, <span class="st">"TIME_PERIOD"</span>)], unique)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>landuse <span class="sc">==</span> <span class="st">"TOTAL"</span>,]</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">dcast</span>(df, geo <span class="sc">~</span> TIME_PERIOD, <span class="at">value.var =</span> <span class="st">"values"</span>) <span class="co"># Redimensionnement de la table au format geo </span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>$freq
-[1] "A"
-
-$unit
-[1] "PC"
-
-$c_birth
-[1] "EU27_2020_FOR"  "FOR"            "NAT"            "NEU27_2020_FOR"
-[5] "NRP"            "TOTAL"         
-
-$sex
-[1] "F" "M" "T"
-
-$age
-[1] "Y15-64" "Y15-74" "Y20-64" "Y25-54" "Y55-64"
-
-$TIME_PERIOD
- [1] 1999 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013
-[16] 2014 2015 2016 2017 2018 2019 2020 2021 2022</code></pre>
+<pre><code>    geo 2013 2014 2015 2016 2017 2018 2019 2020  2021  2022  2023  2024
+1    AL   NA   NA   NA   NA   NA   NA   NA   NA 28791 28791 28791 28791
+2   AL0   NA   NA   NA   NA   NA   NA   NA   NA 28791 28791 28791 28791
+3  AL01   NA   NA   NA   NA   NA   NA   NA   NA 10820 10820 10820 10820
+4 AL011   NA   NA   NA   NA   NA   NA   NA   NA  1661  1661  1661  1661
+5 AL012   NA   NA   NA   NA   NA   NA   NA   NA  3528  3528  3528  3528
+6 AL013   NA   NA   NA   NA   NA   NA   NA   NA  2469  2469  2469  2469</code></pre>
 </div>
 </div>
-<p>On s’intéresse ici au taux de chômage, tout sexe confondu, pour une population âgée de 15 à 64 ans. Le data frame est filtré en conséquence.</p>
+<p>Les tables Eurostat peuvent être caractérisées par des valeurs manquantes du fait de provision de données hétérogènes entre les États Membres de l’Union Européenne ou de réformes territoriales. Pour palier à ceci et afin de disposer au maximum des données une fonction est créée pour prendre pour chaque unité territoriale de la table Eurostat la dernière année disponible.</p>
+<p>La fonction crée ainsi une colonne spécifique qui contient l’année de référence majoritaire pour l’ensemble des unités territoriales (moyenne arrondie des années de référence de l’ensemble de la table) et la joint à une couche géographique cible.</p>
+<p>La fonction prend en entrée la couche géographique cible (<code>x</code>) et son identifiant de jointure (<code>x_id</code>), le dataframe Eurostat contenant les dimensions filtrées au format long (<code>df</code>) ainsi que son identifiant de jointure (<code>df_id</code>) et le nom de la variable de sortie (<code>var</code>).</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>c_birth <span class="sc">==</span> <span class="st">"TOTAL"</span>,]</span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>sex <span class="sc">==</span> <span class="st">"T"</span>,]</span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>age <span class="sc">==</span> <span class="st">"Y15-64"</span>,]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>estat_last_year <span class="ot">&lt;-</span> <span class="cf">function</span>(x, x_id, df, df_id, var){</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Filtrer sur les objets cibles</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> df[df[,df_id] <span class="sc">%in%</span> x[,x_id, drop <span class="ot">=</span> <span class="cn">TRUE</span>],]</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>  tmp <span class="ot">&lt;-</span> df</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Chercher la dernière colonne sans valeur manquante</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>  df[,var] <span class="ot">&lt;-</span> df[<span class="fu">cbind</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(df), <span class="fu">max.col</span>(<span class="sc">!</span><span class="fu">is.na</span>(df), <span class="at">ties.method =</span> <span class="st">'last'</span>))]</span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Chercher cette année de référence</span></span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>  tmp<span class="sc">$</span>xx <span class="ot">&lt;-</span> <span class="fu">substr</span>(<span class="fu">colnames</span>(tmp[<span class="fu">max.col</span>(<span class="sc">!</span><span class="fu">is.na</span>(tmp), <span class="st">'last'</span>)]), <span class="dv">1</span>, <span class="dv">4</span>)</span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Définir pour nom de colonne la valeur moyenne arrondie pour l'ensemble des unités</span></span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>  colyearname <span class="ot">&lt;-</span> <span class="fu">paste0</span>(var, <span class="st">"_"</span>, <span class="fu">round</span>(<span class="fu">mean</span>(<span class="fu">as.numeric</span>(tmp<span class="sc">$</span>xx), <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">0</span>))  </span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Et l'affecter </span></span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">names</span>(df)[<span class="fu">length</span>(df)] <span class="ot">&lt;-</span> colyearname</span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># S'assurer que c'est bien du numérique</span></span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a>  df[,<span class="fu">length</span>(df)] <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(df[,<span class="fu">length</span>(df)])</span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">merge</span>(x, df[,<span class="fu">c</span>(<span class="dv">1</span>, <span class="fu">length</span>(df))], <span class="at">by.x =</span> x_id, <span class="at">by.y =</span> df_id, <span class="at">all.x =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(x)</span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Le data frame est redimensionné dans un format qui permettra la jointure attributaire avec le fond de carte de référence : identifiants uniques des régions européennes sur la première colonne, indicateur d’intérêt aux différentes dates disponibles sur le reste des colonnes.</p>
+<section id="application-aux-nuts" class="level2">
+<h2 class="anchored" data-anchor-id="application-aux-nuts">Application aux NUTS</h2>
+<p>On applique cette méthode au <code>dataframe</code> contenant les données régionales de surface et aux couches géographiques de référence NUTS2 et NUTS3.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Renommer les champs dates</span></span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>TIME_PERIOD <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"Y_"</span>, df<span class="sc">$</span>TIME_PERIOD)</span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Reformater la table</span></span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">dcast</span>(df, geo <span class="sc">~</span> TIME_PERIOD, <span class="at">value.var =</span> <span class="st">"values"</span>)</span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Colonnes d'intérêt</span></span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>var <span class="ot">&lt;-</span> <span class="fu">names</span>(df[<span class="dv">2</span><span class="sc">:</span><span class="fu">length</span>(df)])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span><span class="fu">estat_last_year</span>(<span class="at">x =</span> nuts, <span class="at">x_id =</span> <span class="st">"NUTS_ID"</span>, <span class="at">df =</span> df, <span class="at">df_id =</span> <span class="st">"geo"</span>, </span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">var =</span> <span class="st">"AREA"</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>La jointure attributaire est réalisée. Nous avons dorénavant de quoi réaliser une belle carte thématique !</p>
+<p>Pas de données pour la Serbie. On estime la surface totale avec la fonction <code>st_area()</code>.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">merge</span>(nuts, df, <span class="at">by.x =</span> <span class="st">"NUTS_ID"</span>, <span class="at">by.y =</span> <span class="st">"geo"</span>, <span class="at">all.x =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(nuts)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>est <span class="ot">&lt;-</span> nuts[<span class="fu">is.na</span>(nuts<span class="sc">$</span>AREA_2024),]</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>est<span class="sc">$</span>AREA_2024 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">st_area</span>(est)<span class="sc">/</span><span class="dv">1000000</span>)</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> nuts[<span class="sc">!</span><span class="fu">is.na</span>(nuts<span class="sc">$</span>AREA_2024),]</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">rbind</span>(nuts, est)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Nous répétons l’opération avec les données de population. Il s’agit d’une autre table Eurostat.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">get_eurostat</span>(<span class="st">"demo_r_pjanaggr3"</span>, <span class="at">time_format =</span> <span class="st">"num"</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Simple feature collection with 6 features and 34 fields
-Geometry type: POLYGON
-Dimension:     XY
-Bounding box:  xmin: 4654777 ymin: 1900590 xmax: 5257241 ymax: 2889034
-Projected CRS: ETRS89-extended / LAEA Europe
-  NUTS_ID LEVL_CODE URBN_TYPE CNTR_CODE        NAME_LATN        NUTS_NAME
-1    AL01         2         0        AL             Veri             Veri
-2    AL02         2         0        AL           Qender           Qender
-3    AL03         2         0        AL              Jug              Jug
-4    AT11         2         0        AT       Burgenland       Burgenland
-5    AT12         2         0        AT Niederösterreich Niederösterreich
-6    AT13         2         0        AT             Wien             Wien
-  MOUNT_TYPE COAST_TYPE  FID  geo Y_1999 Y_2000 Y_2001 Y_2002 Y_2003 Y_2004
-1          0          0 AL01 AL01     NA     NA     NA     NA     NA     NA
-2          0          0 AL02 AL02     NA     NA     NA     NA     NA     NA
-3          0          0 AL03 AL03     NA     NA     NA     NA     NA     NA
-4          0          0 AT11 AT11    5.0    4.9    5.0    4.9    5.8    5.5
-5          0          0 AT12 AT12    4.4    4.1    3.3    4.7    4.0    4.6
-6          0          0 AT13 AT13    6.7    7.5    6.0    7.7    8.4   10.6
-  Y_2005 Y_2006 Y_2007 Y_2008 Y_2009 Y_2010 Y_2011 Y_2012 Y_2013 Y_2014 Y_2015
-1     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
-2     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
-3     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
-4    5.8    5.4    4.2    4.2    5.0    4.1    3.8    4.6    4.4    4.9    5.3
-5    4.8    4.5    4.1    3.8    4.7    4.0    4.6    4.6    5.0    5.2    5.3
-6   10.0    9.8    9.3    7.4    8.9    8.4    8.1    9.0    9.4   10.3   10.7
-  Y_2016 Y_2017 Y_2018 Y_2019 Y_2020 Y_2021 Y_2022
-1     NA     NA     NA     NA     NA     NA     NA
-2     NA     NA     NA     NA     NA     NA     NA
-3     NA     NA     NA     NA     NA     NA     NA
-4    5.8    5.3    4.2    3.7    4.2    5.2    4.3
-5    5.3    4.9    3.8    4.1    4.3    5.2    4.0
-6   11.5   10.5   10.1    9.4   10.8   12.2    9.4
-                        geometry
-1 POLYGON ((5148385 2216599, ...
-2 POLYGON ((5178239 2085654, ...
-3 POLYGON ((5257241 2015038, ...
-4 POLYGON ((4854633 2791782, ...
-5 POLYGON ((4802272 2876131, ...
-6 POLYGON ((4780682 2803584, ...</code></pre>
+<pre><code>
+indexed 0B in  0s, 0B/s
+indexed 2.15GB in  0s, 2.15GB/s
+                                                                              </code></pre>
 </div>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>sex <span class="sc">==</span> <span class="st">"T"</span>,]</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df[df<span class="sc">$</span>age <span class="sc">==</span> <span class="st">"TOTAL"</span>,]</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">dcast</span>(df, geo <span class="sc">~</span> TIME_PERIOD, <span class="at">value.var =</span> <span class="st">"values"</span>) </span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> <span class="fu">estat_last_year</span>(<span class="at">x =</span> nuts, <span class="at">x_id =</span> <span class="st">"NUTS_ID"</span>, </span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>                       <span class="at">df =</span> df, <span class="at">df_id =</span> <span class="st">"geo"</span>, <span class="at">var =</span> <span class="st">"POP"</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>On souhaite que la représentation cartographique porte sur l’année la plus récente avec le moins de valeurs manquantes au vu du fond de carte de référence, ici le découpage NUTS2. Ce bloc de code permet d’extraire le nombre de valeur manquantes pour les indicateurs extraits précédemment d’Eurostat.</p>
+<p>Il est par ailleurs possible de récupérer des métadonnées fort utiles à rajouter à la carte avec la fonction <code>get_eurostat_toc()</code>, comme la date de dernière mise à jour.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>nas <span class="ot">&lt;-</span> <span class="fu">sapply</span>(nuts[, var, <span class="at">drop =</span> T], </span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>             <span class="cf">function</span>(x) <span class="fu">sum</span>(<span class="fu">length</span>(<span class="fu">which</span>(<span class="fu">is.na</span>(x)))))</span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>nas</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Y_1999 Y_2000 Y_2001 Y_2002 Y_2003 Y_2004 Y_2005 Y_2006 Y_2007 Y_2008 Y_2009 
-   100     98     91     87     83     79     65     45     37     37     38 
-Y_2010 Y_2011 Y_2012 Y_2013 Y_2014 Y_2015 Y_2016 Y_2017 Y_2018 Y_2019 Y_2020 
-    30     30     26     12     12     12      6      6      6      7     58 
-Y_2021 Y_2022 
-    71     74 </code></pre>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>id_estat <span class="ot">&lt;-</span> <span class="st">"demo_r_pjanaggr3"</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>toc <span class="ot">&lt;-</span> <span class="fu">get_eurostat_toc</span>(<span class="at">lang =</span> <span class="st">"fr"</span>)</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>toc <span class="ot">&lt;-</span> toc[toc<span class="sc">$</span>code <span class="sc">==</span> id_estat,]</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>last_update <span class="ot">&lt;-</span> toc<span class="sc">$</span>last.update.of.data[<span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-</div>
-<p>L’année la plus récente est l’année 2018.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>nas <span class="ot">&lt;-</span> nas[nas <span class="sc">==</span> <span class="fu">min</span>(nas)]</span>
-<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>var <span class="ot">&lt;-</span> <span class="fu">names</span>(nas)[<span class="fu">length</span>(nas)]</span>
-<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>var</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Y_2018"</code></pre>
-</div>
-</div>
-<p>Tout est prêt pour initier la représentation cartographique avec le modèle cartographique précédemment réalisé.</p>
 </section>
 <section id="carte-finale" class="level2">
 <h2 class="anchored" data-anchor-id="carte-finale">Carte finale</h2>
-<p>Voici une carte mise en page sur le taux de chômage avec les territoires périphériques !</p>
+<p>Voici une carte mise en page sur la densité de population sur les territoires périphériques avec les territoires périphériques !</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fond de carte avec différentes couches d'habillage</span></span>
-<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map_background</span>()</span>
-<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">var =</span> var, <span class="at">type =</span> <span class="st">"choro"</span>, <span class="at">pal =</span> <span class="st">"Heat 2"</span>, <span class="at">nbreaks =</span> <span class="dv">6</span>,</span>
-<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>, <span class="at">leg_title =</span> <span class="st">"Taux de chômage, 15-64 ans %"</span>,</span>
-<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>       <span class="at">leg_pos =</span> <span class="fu">c</span>(<span class="dv">2350000</span>, <span class="dv">4700000</span>), <span class="at">leg_no_data =</span> <span class="st">"Pas de données"</span>)</span>
-<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a><span class="fu">map_foreground</span>(<span class="at">title =</span> <span class="fu">paste</span>(<span class="st">"Taux de chômage régional (NUTS2)"</span>, </span>
-<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>                             <span class="fu">substr</span>(var, <span class="dv">3</span>,<span class="dv">7</span>), <span class="at">sep =</span> <span class="st">" "</span>),</span>
-<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>               <span class="at">sources =</span> <span class="fu">paste</span>(<span class="st">"Eurostat, GISCO, 2024 / Table"</span>, id, </span>
-<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>                                <span class="st">"/ Dernière mise à jour : "</span>, last_update, </span>
-<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>                               <span class="at">sep =</span> <span class="st">" "</span>))</span>
-<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Si on veut voir afficher les capitales</span></span>
-<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a>cap <span class="ot">&lt;-</span> cities[cities<span class="sc">$</span>CITY_CPTL <span class="sc">==</span> <span class="st">"Y"</span>,]</span>
-<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(cap, <span class="at">pch =</span> <span class="dv">21</span>, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">bg =</span> <span class="st">"black"</span>, <span class="at">cex =</span> .<span class="dv">6</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_label</span>(cap, <span class="at">var =</span> <span class="st">"URAU_NAME"</span>, <span class="at">halo =</span> <span class="cn">TRUE</span>, <span class="at">cex =</span> .<span class="dv">4</span>, <span class="at">pos =</span> <span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>nuts<span class="sc">$</span>DENS <span class="ot">&lt;-</span> nuts<span class="sc">$</span>POP_2023 <span class="sc">/</span> nuts<span class="sc">$</span>AREA_2024</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Fond de carte avec différentes couches d'habillage</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="fu">map_background</span>()</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(nuts, <span class="at">var =</span> <span class="st">"DENS"</span>, <span class="at">type =</span> <span class="st">"choro"</span>, <span class="at">pal =</span> <span class="st">"Heat 2"</span>, <span class="at">nbreaks =</span> <span class="dv">6</span>,</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>       <span class="at">border =</span> <span class="cn">NA</span>, <span class="at">add =</span> <span class="cn">TRUE</span>, <span class="at">leg_title =</span> <span class="st">"Densité de population</span><span class="sc">\n</span><span class="st">(habitants/km²)"</span>,</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>       <span class="at">leg_pos =</span> <span class="fu">c</span>(<span class="dv">2050000</span>, <span class="dv">4700000</span>), <span class="at">leg_no_data =</span> <span class="st">"Pas de données"</span>)</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_map</span>(cities, <span class="at">pch =</span> <span class="dv">21</span>, <span class="at">col =</span> <span class="cn">NA</span>, <span class="at">bg =</span> <span class="st">"black"</span>, <span class="at">cex =</span> .<span class="dv">6</span>, <span class="at">add =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a><span class="fu">mf_label</span>(cities, <span class="at">var =</span> <span class="st">"NAME"</span>, <span class="at">halo =</span> <span class="cn">TRUE</span>, <span class="at">cex =</span> .<span class="dv">4</span>, <span class="at">pos =</span> <span class="dv">4</span>)</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a><span class="fu">map_foreground</span>(<span class="at">title =</span> <span class="st">"Densité de population (NUTS3)"</span>,</span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>               <span class="at">sources =</span> <span class="fu">paste</span>(<span class="st">"Eurostat, GISCO, 2024 / Table"</span>, id_estat, </span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a>                                <span class="st">"/ Dernière mise à jour : "</span>, last_update, </span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a>                               <span class="at">sep =</span> <span class="st">" "</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-30-1.png" class="img-fluid" style="width:100.0%"></p>
+<div>
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
+</figure>
 </div>
+</div>
+</div>
+<p>Ce sont aussi les couches géographiques utilisées pour le modèle cartographique de Magrit. En ce sens on n’exporte que les champs utiles</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Ne conserver que les champs utiles</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>nuts <span class="ot">&lt;-</span> nuts[,<span class="fu">c</span>(<span class="st">"NUTS_ID"</span>, <span class="st">"NAME_LATN"</span>, <span class="st">"LEVL_CODE"</span>, <span class="st">"URBN_TYPE"</span>, <span class="st">"MOUNT_TYPE"</span>,</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>                <span class="st">"AREA_2024"</span>, <span class="st">"POP_2023"</span>)]</span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a><span class="fu">unique</span>(<span class="fu">st_is_valid</span>(nuts)) <span class="co"># TRUE</span></span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a>nuts2 <span class="ot">&lt;-</span> nuts[nuts<span class="sc">$</span>LEVL_CODE <span class="sc">==</span> <span class="st">"2"</span>,]</span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>nuts3 <span class="ot">&lt;-</span> nuts[nuts<span class="sc">$</span>LEVL_CODE <span class="sc">==</span> <span class="st">"3"</span>,]</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a><span class="fu">st_write</span>(nuts2, <span class="st">"output/eu_template_nuts2.geojson"</span>)</span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a><span class="fu">st_write</span>(nuts3, <span class="st">"output/eu_template_nuts3.geojson"</span>)</span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a><span class="fu">st_write</span>(frame, <span class="st">"output/eu_template_frame.geojson"</span>)</span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a>country <span class="ot">&lt;-</span> country[,<span class="fu">c</span>(<span class="st">"CNTR_ID"</span>, <span class="st">"CNTR_NAME"</span>)]</span>
+<span id="cb38-16"><a href="#cb38-16" aria-hidden="true" tabindex="-1"></a><span class="fu">unique</span>(<span class="fu">st_is_valid</span>(country)) <span class="co"># TRUE</span></span>
+<span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a><span class="fu">st_write</span>(country, <span class="st">"output/eu_template_country.geojson"</span>)</span>
+<span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a>country_box <span class="ot">&lt;-</span> country_box[,<span class="fu">c</span>(<span class="st">"CNTR_ID"</span>, <span class="st">"CNTR_NAME"</span>)]</span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a><span class="fu">unique</span>(<span class="fu">st_is_valid</span>(country_box)) <span class="co"># TRUE</span></span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a><span class="fu">st_write</span>(country_box, <span class="st">"output/eu_template_country_box.geojson"</span>)</span>
+<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-23"><a href="#cb38-23" aria-hidden="true" tabindex="-1"></a><span class="fu">unique</span>(<span class="fu">st_is_valid</span>(boxes)) <span class="co"># TRUE</span></span>
+<span id="cb38-24"><a href="#cb38-24" aria-hidden="true" tabindex="-1"></a><span class="fu">st_write</span>(boxes, <span class="st">"output/eu_template_boxes.geojson"</span>)</span>
+<span id="cb38-25"><a href="#cb38-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-26"><a href="#cb38-26" aria-hidden="true" tabindex="-1"></a><span class="fu">unique</span>(<span class="fu">st_is_valid</span>(borders)) <span class="co"># TRUE</span></span>
+<span id="cb38-27"><a href="#cb38-27" aria-hidden="true" tabindex="-1"></a>borders <span class="ot">&lt;-</span> <span class="fu">st_set_crs</span>(borders, <span class="dv">3035</span>)</span>
+<span id="cb38-28"><a href="#cb38-28" aria-hidden="true" tabindex="-1"></a><span class="fu">st_write</span>(borders, <span class="st">"output/eu_template_borders.geojson"</span>)</span>
+<span id="cb38-29"><a href="#cb38-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-30"><a href="#cb38-30" aria-hidden="true" tabindex="-1"></a><span class="fu">st_write</span>(cities, <span class="st">"output/eu_template_cities.geojson"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>R version 4.1.2 (2021-11-01)
-Platform: x86_64-pc-linux-gnu (64-bit)
-Running under: Ubuntu 22.04.3 LTS
+<pre><code>R version 4.4.1 (2024-06-14 ucrt)
+Platform: x86_64-w64-mingw32/x64
+Running under: Windows 10 x64 (build 19045)
 
 Matrix products: default
-BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
-LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.20.so
+
 
 locale:
- [1] LC_CTYPE=fr_FR.UTF-8       LC_NUMERIC=C              
- [3] LC_TIME=fr_FR.UTF-8        LC_COLLATE=fr_FR.UTF-8    
- [5] LC_MONETARY=fr_FR.UTF-8    LC_MESSAGES=fr_FR.UTF-8   
- [7] LC_PAPER=fr_FR.UTF-8       LC_NAME=C                 
- [9] LC_ADDRESS=C               LC_TELEPHONE=C            
-[11] LC_MEASUREMENT=fr_FR.UTF-8 LC_IDENTIFICATION=C       
+[1] LC_COLLATE=French_France.utf8  LC_CTYPE=French_France.utf8   
+[3] LC_MONETARY=French_France.utf8 LC_NUMERIC=C                  
+[5] LC_TIME=French_France.utf8    
+
+time zone: Europe/Paris
+tzcode source: internal
 
 attached base packages:
 [1] stats     graphics  grDevices utils     datasets  methods   base     
 
 other attached packages:
-[1] reshape2_1.4.4  mapsf_0.8.0     mapinsetr_0.3.0 sf_1.0-15      
-[5] eurostat_4.0.0  giscoR_0.4.0   
+[1] rnaturalearth_1.0.1 reshape2_1.4.4      mapsf_0.11.0       
+[4] mapinsetr_0.3.0     sf_1.0-17           eurostat_4.0.0     
+[7] giscoR_0.6.0       
 
 loaded via a namespace (and not attached):
- [1] Rcpp_1.0.11        lubridate_1.9.3    here_1.0.1         countrycode_1.5.0 
- [5] tidyr_1.3.0        class_7.3-22       assertthat_0.2.1   rprojroot_2.0.4   
- [9] digest_0.6.34      utf8_1.2.4         R6_2.5.1           cellranger_1.1.0  
-[13] plyr_1.8.9         httr2_1.0.0        backports_1.4.1    evaluate_0.23     
-[17] e1071_1.7-14       httr_1.4.7         pillar_1.9.0       rlang_1.1.3       
-[21] curl_5.2.0         readxl_1.4.3       rstudioapi_0.15.0  data.table_1.14.10
-[25] rmarkdown_2.25     RefManageR_1.4.0   readr_2.1.5        stringr_1.5.1     
-[29] ISOweek_0.6-2      htmlwidgets_1.6.4  bit_4.0.5          maplegend_0.1.0   
-[33] proxy_0.4-27       compiler_4.1.2     xfun_0.41          pkgconfig_2.0.3   
-[37] htmltools_0.5.7    tidyselect_1.2.0   tibble_3.2.1       regions_0.1.8     
-[41] fansi_1.0.6        withr_2.5.2        crayon_1.5.2       dplyr_1.1.4       
-[45] tzdb_0.4.0         wk_0.9.1           rappdirs_0.3.3     grid_4.1.2        
-[49] jsonlite_1.8.8     lifecycle_1.0.4    DBI_1.2.0          magrittr_2.0.3    
-[53] units_0.8-5        bibtex_0.5.1       KernSmooth_2.23-22 vroom_1.6.5       
-[57] cli_3.6.2          stringi_1.8.3      xml2_1.3.6         vctrs_0.6.5       
-[61] generics_0.1.3     geojsonsf_2.0.3    s2_1.1.6           tools_4.1.2       
-[65] bit64_4.0.5        glue_1.7.0         purrr_1.0.2        hms_1.1.3         
-[69] parallel_4.1.2     fastmap_1.1.1      yaml_2.3.8         timechange_0.2.0  
-[73] classInt_0.4-10    knitr_1.45        </code></pre>
+ [1] xfun_0.47          httr2_1.0.5        htmlwidgets_1.6.4  tzdb_0.4.0        
+ [5] vctrs_0.6.5        tools_4.4.1        ISOweek_0.6-2      generics_0.1.3    
+ [9] parallel_4.4.1     curl_5.2.3         tibble_3.2.1       proxy_0.4-27      
+[13] fansi_1.0.6        RefManageR_1.4.0   pkgconfig_2.0.3    KernSmooth_2.23-24
+[17] data.table_1.16.0  readxl_1.4.3       assertthat_0.2.1   lifecycle_1.0.4   
+[21] compiler_4.4.1     stringr_1.5.1      terra_1.7-78       codetools_0.2-20  
+[25] maplegend_0.1.0    htmltools_0.5.8.1  class_7.3-22       yaml_2.3.10       
+[29] crayon_1.5.3       pillar_1.9.0       tidyr_1.3.1        regions_0.1.8     
+[33] classInt_0.4-10    cartography_3.1.4  wk_0.9.3           countrycode_1.6.0 
+[37] tidyselect_1.2.1   digest_0.6.35      stringi_1.8.3      dplyr_1.1.4       
+[41] purrr_1.0.2        bibtex_0.5.1       rprojroot_2.0.4    fastmap_1.2.0     
+[45] grid_4.4.1         here_1.0.1         cli_3.6.3          magrittr_2.0.3    
+[49] utf8_1.2.4         e1071_1.7-16       withr_3.0.1        readr_2.1.5       
+[53] backports_1.5.0    rappdirs_0.3.3     bit64_4.5.2        lubridate_1.9.3   
+[57] timechange_0.3.0   rmarkdown_2.28     httr_1.4.7         bit_4.5.0         
+[61] cellranger_1.1.0   hms_1.1.3          evaluate_1.0.0     knitr_1.48        
+[65] s2_1.1.7           rlang_1.1.4        Rcpp_1.0.13        glue_1.7.0        
+[69] DBI_1.2.3          geojsonsf_2.0.3    xml2_1.3.6         vroom_1.6.5       
+[73] rstudioapi_0.16.0  jsonlite_1.8.8     R6_2.5.1           plyr_1.8.9        
+[77] units_0.8-5       </code></pre>
 </div>
 </div>
 </section>
@@ -1046,18 +1092,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }
     return false;
   }
-  const clipboard = new window.ClipboardJS('.code-copy-button', {
-    text: function(trigger) {
-      const codeEl = trigger.previousElementSibling.cloneNode(true);
-      for (const childEl of codeEl.children) {
-        if (isCodeAnnotation(childEl)) {
-          childEl.remove();
-        }
-      }
-      return codeEl.innerText;
-    }
-  });
-  clipboard.on('success', function(e) {
+  const onCopySuccess = function(e) {
     // button target
     const button = e.trigger;
     // don't keep focus
@@ -1089,11 +1124,50 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }, 1000);
     // clear code selection
     e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
   });
-  function tippyHover(el, contentFn) {
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
-      content: contentFn,
       maxWidth: 500,
       delay: 100,
       arrow: false,
@@ -1103,8 +1177,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       interactive: true,
       interactiveBorder: 10,
       theme: 'quarto',
-      placement: 'bottom-start'
+      placement: 'bottom-start',
     };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
     window.tippy(el, config); 
   }
   const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
@@ -1116,7 +1199,130 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       try { href = new URL(href).hash; } catch {}
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
-      return note.innerHTML;
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
     });
   }
       let selectedAnnoteEl;
@@ -1160,6 +1366,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
             }
             div.style.top = top - 2 + "px";
             div.style.height = height + 4 + "px";
+            div.style.left = 0;
             let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
             if (gutterDiv === null) {
               gutterDiv = window.document.createElement("div");
@@ -1185,6 +1392,32 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         });
         selectedAnnoteEl = undefined;
       };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
       // Attach click handler to the DT
       const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
       for (const annoteDlNode of annoteDls) {
@@ -1245,6 +1478,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 });
 </script>
 </div> <!-- /content -->
+
 
 
 

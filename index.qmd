@@ -6,15 +6,18 @@ execute:
 date: "`r Sys.Date()`"  
 author:
   - name: Ronan Ysebaert 
-    url: https://rysebaert.github.io/climbing_paris/
+    url: https://rysebaert.gitpages.huma-num.fr/cv/
     affiliation: UAR RIATE, Université Paris Cité, CNRS
     affiliation-url: https://riate.cnrs.fr/
 format:
   html:
     toc: true
+    toc-depth: 2
+    toc-title: "."
+    embed-resources: true
     fontsize: 0.9em
-    css: "styles.css"
-    linkcolor: "#8631ad"
+    css: custom.css
+    linkcolor: "#d31329"
 knitr:
   opts_chunk:
     out.width: "100%"
@@ -26,20 +29,21 @@ Les Départements et Régions d'Outre Mer (DROM), les Canaries, les Açores et M
 
 Une solution existe grâce à la librairie [`mapinsetr`](https://github.com/riatelab/mapinsetr) et permet d'extraire sans trop de difficultés des territoires inclus dans des masques et de les translater dans le plan de la carte principale (*inset*). Nous montrons ici une procédure possible, qui conduit à la réalisation d'une carte du taux de chômage régional incluant **l'ensemble des territoires européens**. 
 
-Une attention particulière est ici portée pour la réalisation d'un modèle cartographique, comprenant plusieurs couches d'habillage cartographique.  
+Une attention particulière est ici portée pour la réalisation d'un modèle cartographique, comprenant plusieurs couches géographiques d'habillage.  
 
-Notons que ces programmes R ont permis la [réalisation des modèles cartographiques](https://github.com/riatelab/map-templates) proposés par l'application de cartographie thématique [Magrit](http://magrit.cnrs.fr/). 
-
-4 autres librairies sont ici mobilisées hormis `mapinsetr` et `giscoR`:
+6 autres librairies sont ici mobilisées hormis `mapinsetr` et `giscoR`:
 
 - `sf` pour les opérations sur les géométries (reprojections, intersections, etc). La plupart des fonctions mobilisées dans `mapinsetr` reposent sur cette librairie.
+- `rnaturalearth` pour extraire les capitales d'État.
 - `eurostat`, pour importer les données de référence au niveau européen. 
 - `mapsf` pour les représentations cartographiques qui en découlent.
+- `cartography` pour extraire les frontières internationales.
 - `reshape2`, à la marge, pour manipuler les tableaux de données qui proviennent de la librairie `eurostat`.
 
 ```{r}
 library(giscoR)
 library(eurostat)
+library(rnaturalearth)
 library(sf)
 #devtools::install_github("riatelab/mapinsetr", force = TRUE)
 library(mapinsetr)
@@ -51,7 +55,7 @@ library(reshape2)
 
 ## Import des géométries de référence
 
-Les géométries de référence sont importées avec la librairie `giscoR`. La question se pose de la façon de procéder pour représenter les territoires ultra-périphériques, comme les DROM, Madère ou les Canaries de façon optimale dans un modèle cartographique.
+Les géométries de référence sont importées avec la librairie `giscoR`. La question se pose sur la façon de procéder pour représenter les territoires ultra-périphériques, comme les DROM, Madère, les Açores ou les Canaries de façon optimale dans un modèle cartographique.
 
 ```{r}
 nuts <- gisco_get_nuts(epsg = "3035",   nuts_level = 2, resolution = "20", year = "2021", 
@@ -62,7 +66,7 @@ mf_map(nuts)
 Commençons par définir l'emprise spatiale de notre modèle cartographique. La fonction `locator()` est utile pour extraire les couples de coordonnées à partir d'un plot ou d'une carte. Sur une carte il s'agira du système de coordonnées géographiques de l'objet spatial importé, ici celui de référence de l'Union Européenne (ETRS89-extended / LAEA Europe, ESPG:3035)
 
 ```{r}
-# Définition des limites du modèles cartographique (800 * 1000)
+# Définition des limites du modèles cartographique 
 bbox <- st_bbox(obj = c(xmin = 1920000, ymin = 1300000,  xmax = 6600000, ymax = 5500000),
                 crs = 3035)
 frame <- st_sf(geom = st_as_sfc(bbox))
@@ -71,7 +75,7 @@ mf_map(frame, col = "lightblue")
 mf_map(nuts, col = "peachpuff", border = "white",add = TRUE)
 ```
 
-L'emprise spatiale apparaît adéquate pour focaliser la représentation cartographique sur les territoires de l'Europe continentale. Elle est pensée pour avoir une résolution de 800 * 1000 en hauteur / largeur et pour prévoir un espace à l'ouest de l'Europe qui sera utile pour positionner une légende à la carte à posteriori. 
+L'emprise spatiale apparaît adéquate pour focaliser la représentation cartographique sur les territoires de l'Europe continentale : elle est pensée pour comprendre Chypre à l'est, Malte au sud et les territoires continentaux norvégiens au nord. Un espace supplémentaire est instauré à l'ouest afin de laisser l'espace nécessaire pour positionner une légende.
 
 Mais comment ne pas omettre nos territoires périphériques ? 
 
@@ -384,6 +388,8 @@ multiple_m_r <- function(x, param, bind = FALSE, bind_layer = NULL, frame,
 }
 ```
 
+## NUTS
+
 Appliquons cette fameuse fonction à notre couche de NUTS2.
 
 ```{r}
@@ -415,12 +421,16 @@ k <- multiple_m_r(x = input, param = df, return_k = TRUE)
 k
 ```
 
+## Boîtes
+
 Extraction de la géométrie des *insets* (boîtes).
 
 ```{r}
 boxes <- make_poly(df, crs = unique(df$i_epsg),
                    xmin = "i_xmin", ymin = "i_ymin", xmax = "i_xmax", ymax = "i_ymax")
 ```
+
+## Pays voisins
 
 Quelques couches d'habillage pour embellir la carte (pays limitrophes) ne seraient pas de refus ! La procédure est identique, avec une autre couche géographique d'entrée. Pour des questions d'habillage (optimisation de la superposition des couches), nous n'allons pas joindre les sorties de la fonction `multiple_m_r` à la couche d'entrée. 
 
@@ -430,34 +440,40 @@ country <- st_transform(country, 3035)
 
 country_box <- multiple_m_r(x = country, param = df, bind = FALSE, frame = frame)
 country <- st_intersection(country, frame)
+```
 
+## Frontières internationales
 
+Nous créons ensuite avec la fonction `getBorders` de la librairie `cartography` la couche géographique des frontières internationales. 
+
+```{r}
 borders <- cartography::getBorders(country)
 borders2 <- cartography::getBorders(country_box)
 borders <- rbind(borders, borders2)
 ```
 
-Voici le modèle qui en résulte ! Nous utilisons ici les fonctionnalités de représentation de la librairie [mapsf](https://riatelab.github.io/mapsf/).
+## Capitales d'État
 
-Nous extrayons enfin les capitales européennes à des fins d'habillage cartographique. Nous ne conservons pas les capitales des petits pays pour lesquels nous n'avons pas de données et celle qui se superposerait aux boîtes (Moscou).
+Pour finir nous extrayons avec la librairie `rnaturalearth` les capitales d'État qui recoupent l'emprise du modèle cartographique à des fins d'habillage. Nous ne conservons pas les capitales des petits pays pour lesquels nous n'avons pas de données et celle qui se superposerait aux boîtes (Moscou) ou à la mise en page (sources, Rabat).
 
 ```{r}
-library(rnaturalearth)
-cities <- ne_download(scale = 110, type = "populated_places", category = "cultural")
+#| message: false
+#| warning: false
+
+cities <- ne_download(scale = 110, type = "populated_places", 
+                      category = "cultural")
 cities <- st_transform(cities, 3035)
 cities <- st_intersection(cities, frame)
+cities <- cities[cities$ADM0CAP == 1,]
 cities <- cities[,"NAME"]
 
-cities <- cities[!cities$NAME %in% c("Vatican City",
-                                     "San Marino",
-                                     "Monaco",
-                                     "Andorra",
-                                     "Moscow",
-                                     "The Hague",
-                                     "Casablanca",
-                                     "Istanbul"),]
+cities <- cities[!cities$NAME %in% c("Vatican City", "San Marino", "Monaco",
+                                     "Andorra", "Moscow", "Rabat"),]
 ```
 
+## Un modèle cartographique pour l'Europe
+
+Voici le modèle qui en résulte ! Nous utilisons ici les fonctionnalités de représentation de la librairie [mapsf](https://riatelab.github.io/mapsf/).
 
 Pour optimiser l'affichage de la carte (plein écran, sans marge) on utilise la fonction `mf_get_ratio` qui permet d’obtenir la largeur et la hauteur de l'emprise de la carte (à paramétrer dans les chunks). L'argument `expandBB` est utilisé pour supprimer les marges (4 % autour de la carte par défaut). 
 
@@ -529,30 +545,33 @@ map_foreground(title = "Les pays européens", source = "Eurostat, GISCO, 2024")
 ```
 
 
-# Enrichissement des couches géographiques avec des données Eurostat
+# Enrichissement du template avec des données Eurostat
 
 Une fois ce modèle préparé, on peut aisément le mobiliser avec des données socio-économiques en utilisant la librairie [`eurostat`](https://ropengov.github.io/eurostat/articles/eurostat_tutorial.html), qui comme son nom le suggère, permet d'accéder au contenu de la base de données Eurostat. 
 
-Nous allons ici l'appliquer pour en enrichir les couches géographiques NUTS3, NUTS2 et des villes avec des données de population et de surface.
+Nous allons ici l'appliquer pour enrichir les couches géographiques NUTS 2 et 3 avec des données de population et de surface.
 
-Une rapide exploration de l'organisation des [données mises à disposition par Eurostat](https://ec.europa.eu/eurostat/fr/web/main/data/database) permet d'identifier le nom des tables Eurostat d'intérêt :  `reg_area3` pour la surface et `demo_r_pjanaggr3` pour la surface totale. 
-![](fig/fig-estat.png)
+Une rapide exploration de l'organisation des [données mises à disposition par Eurostat](https://ec.europa.eu/eurostat/fr/web/main/data/database) permet d'identifier le nom des tables Eurostat d'intérêt :  `reg_area3` pour la surface et `demo_r_pjanaggr3` pour la population. 
+![](img/fig-estat.png)
 
-Il n'y a pas une méthode unique pour appareiller des données Eurostat à une couche géographique de référence. 
-
-L'idée générale proposée ici consiste à filtrer les dimensions de la table Eurostat pour aboutir à l'indicateur souhaité et passé au format long : les lignes correspondant aux unités territoriales et les colonnes aux différentes années de référence disponibles dans la table. 
+Les tables Eurostat comprennent différentes dimensions (unités territoriales, années de référence, unité de mesure, indicateurs). L'idée consiste dans un premier temps à filtrer les dimensions de ces tables pour aboutir à l'indicateur souhaité et passé au format long : les lignes correspondant aux unités territoriales et les colonnes aux différentes années de référence disponibles dans la table. 
 
 ```{r}
 library(eurostat)
-df <- get_eurostat("reg_area3", time_format = "num") # Telecharger la table ESTAT
-df <- df[df$landuse == "TOTAL",]
+df <- get_eurostat("reg_area3", time_format = "num") # Télécharger la table ESTAT
+df <- df[df$landuse == "TOTAL",] # Surface totale
 df <- dcast(df, geo ~ TIME_PERIOD, value.var = "values") # Redimensionnement de la table au format geo 
-head(df)
+head(df[1579:1591,], 10)
 ```
 
-Les tables Eurostat peuvent être caractérisées par des valeurs manquantes du fait de provision de données hétérogènes entre les États Membres de l'Union Européenne ou de réformes territoriales. Pour palier à ceci et afin de disposer au maximum des données une fonction est créée pour prendre pour chaque unité territoriale de la table Eurostat la dernière année disponible. 
+Les tables Eurostat peuvent être caractérisées par des valeurs manquantes en fonction des années du fait de provision de données hétérogènes entre les États Membres de l'Union Européenne ou de réformes territoriales. 
 
-La fonction crée ainsi une colonne spécifique qui contient l'année de référence majoritaire pour l'ensemble des unités territoriales (moyenne arrondie des années de référence de l'ensemble de la table) et la joint à une couche géographique cible.  
+Pour disposer d'un maximum des données la fonction `estat_last_year` est créée. Elle permet :
+
+- pour chaque unité territoriale de la table ainsi formatée de ne conserver que la dernière année sans valeur manquante.
+- d'affecter un label à l'indicateur donnant une indication sur l'année majoritaire pour l'ensemble des unités territoriales (moyenne arrondie des années de référence de l'ensemble de la table).
+
+Le résultat - un champ contenant ces valeurs consolidées - est jointe à une couche cible. 
 
 La fonction prend en entrée la couche géographique cible (`x`) et son identifiant de jointure (`x_id`), le dataframe Eurostat contenant les dimensions filtrées au format long (`df`) ainsi que son identifiant de jointure (`df_id`) et le nom de la variable de sortie (`var`).
 
@@ -584,7 +603,7 @@ estat_last_year <- function(x, x_id, df, df_id, var){
 
 ## Application aux NUTS
 
-On applique cette méthode au `dataframe` contenant les données régionales de surface et aux couches géographiques de référence NUTS2 et NUTS3.  
+La fonction est appliquée au `dataframe` contenant les données régionales de surface et aux couches géographiques de référence NUTS2 et NUTS3.  
 
 ```{r}
 nuts <-estat_last_year(x = nuts, x_id = "NUTS_ID", df = df, df_id = "geo", 
@@ -600,7 +619,7 @@ nuts <- nuts[!is.na(nuts$AREA_2024),]
 nuts <- rbind(nuts, est)
 ```
 
-Nous répétons l'opération avec les données de population. Il s'agit d'une autre table Eurostat. 
+Nous répétons la procédure à une autre table Eurostat qui contient les données de population. 
  
 ```{r}
 df <- get_eurostat("demo_r_pjanaggr3", time_format = "num") 
@@ -612,7 +631,7 @@ nuts <- estat_last_year(x = nuts, x_id = "NUTS_ID",
                        df = df, df_id = "geo", var = "POP") 
 ```
 
-Il est par ailleurs possible de récupérer des métadonnées fort utiles à rajouter à la carte avec la fonction `get_eurostat_toc()`, comme la date de dernière mise à jour. 
+La librairie `eurostat` rend par ailleurs possible la récupération de métadonnées fort utiles à rajouter à la carte. La fonction `get_eurostat_toc()` délivre par exemple la dernière date de mise à jour d'une table donnée. 
 
 ```{r}
 id_estat <- "demo_r_pjanaggr3"
@@ -645,13 +664,11 @@ map_foreground(title = "Densité de population (NUTS3)",
                                sep = " "))
 ```
 
-
-
-Ce sont aussi les couches géographiques utilisées pour le modèle cartographique de Magrit. 
-En ce sens on n'exporte que les champs utiles
+Ces couches géographiques sont utilisées dans le modèle cartographique Europe de [Magrit](https://magrit.cnrs.fr). 
 
 ```{r}
 #| eval: false
+#| echo: false
 
 # Ne conserver que les champs utiles
 nuts <- nuts[,c("NUTS_ID", "NAME_LATN", "LEVL_CODE", "URBN_TYPE", "MOUNT_TYPE",
@@ -682,7 +699,7 @@ unique(st_is_valid(borders)) # TRUE
 borders <- st_set_crs(borders, 3035)
 st_write(borders, "output/eu_template_borders.geojson")
 
-st_write(cities, "output/eu_template_cities.geojson")
+st_write(cities, "output/eu_template.cities.geojson")
 ```
 
 ```{r}

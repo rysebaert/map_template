@@ -2,7 +2,7 @@
 
 Ce [notebook](https://rysebaert.github.io/map_template/) présente une solution technique pour créer un modèle cartographique harmonieux pour l'Europe, qui inclut les territoires périphériques européens (DROM, Canaries, Madère, Açores) dans l'emprise principale du modèle cartographique. Il s'agit ici d'un cas d'usage avancé de la librairie [`mapinsetr`](https://github.com/riatelab/mapinsetr).
 
-![](fig/fig_template.png)
+![](img/fig_template.png)
 
 ### Licence
 Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)

@@ -1,6 +1,6 @@
 {
 "type": "FeatureCollection",
-"name": "eu_template_cities",
+"name": "eu_template.cities",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::3035" } },
 "features": [
 { "type": "Feature", "properties": { "NAME": "Vaduz" }, "geometry": { "type": "Point", "coordinates": [ 4284302.237224166281521, 2669027.092560046352446 ] } },
@@ -13,7 +13,6 @@
 { "type": "Feature", "properties": { "NAME": "Skopje" }, "geometry": { "type": "Point", "coordinates": [ 5267588.05373667832464, 2171519.943149087484926 ] } },
 { "type": "Feature", "properties": { "NAME": "Tunis" }, "geometry": { "type": "Point", "coordinates": [ 4337171.925957007333636, 1525997.141643612645566 ] } },
 { "type": "Feature", "properties": { "NAME": "Reykjavík" }, "geometry": { "type": "Point", "coordinates": [ 2821309.057409898843616, 4911293.042431416921318 ] } },
-{ "type": "Feature", "properties": { "NAME": "Rabat" }, "geometry": { "type": "Point", "coordinates": [ 2761005.766621744260192, 1391125.303129485342652 ] } },
 { "type": "Feature", "properties": { "NAME": "Chișinău" }, "geometry": { "type": "Point", "coordinates": [ 5738627.088377371430397, 2836473.955840649083257 ] } },
 { "type": "Feature", "properties": { "NAME": "Vilnius" }, "geometry": { "type": "Point", "coordinates": [ 5300592.091518481262028, 3613090.745528569910675 ] } },
 { "type": "Feature", "properties": { "NAME": "Riga" }, "geometry": { "type": "Point", "coordinates": [ 5173448.24682576674968, 3845079.204998429864645 ] } },
@@ -40,7 +39,6 @@
 { "type": "Feature", "properties": { "NAME": "Algiers" }, "geometry": { "type": "Point", "coordinates": [ 3695960.263050603680313, 1550095.21673286985606 ] } },
 { "type": "Feature", "properties": { "NAME": "Kyiv" }, "geometry": { "type": "Point", "coordinates": [ 5756644.760777262039483, 3239029.726776031311601 ] } },
 { "type": "Feature", "properties": { "NAME": "Madrid" }, "geometry": { "type": "Point", "coordinates": [ 3160668.89889685343951, 2027947.475698289927095 ] } },
-{ "type": "Feature", "properties": { "NAME": "Geneva" }, "geometry": { "type": "Point", "coordinates": [ 4022932.232719741296023, 2574061.821203880943358 ] } },
 { "type": "Feature", "properties": { "NAME": "Stockholm" }, "geometry": { "type": "Point", "coordinates": [ 4780093.947101717814803, 4050903.7089525423944 ] } },
 { "type": "Feature", "properties": { "NAME": "Amsterdam" }, "geometry": { "type": "Point", "coordinates": [ 3974818.511058618314564, 3261255.220506557729095 ] } },
 { "type": "Feature", "properties": { "NAME": "Berlin" }, "geometry": { "type": "Point", "coordinates": [ 4551650.878236435353756, 3273669.652276908047497 ] } },

@@ -674,8 +674,17 @@ Ces couches géographiques sont utilisées dans le modèle cartographique Europe
 nuts <- nuts[,c("NUTS_ID", "NAME_LATN", "LEVL_CODE", "URBN_TYPE", "MOUNT_TYPE",
                 "AREA_2024", "POP_2023")]
 
-unique(st_is_valid(nuts)) # TRUE
-st_transform(nuts, 4326)
+# Transform and round geom decimals
+geom_round <- function(x, precision){
+  st_geometry(x) %>% st_sfc(precision = precision) %>% 
+  st_as_binary  %>% 
+  st_as_sfc
+}
+
+nuts <- st_transform(nuts, 4326)# 
+nuts$geometry <- geom_round(nuts, precision = 10000)
+nuts <- st_set_crs(nuts, "EPSG:4326")
+unique(st_is_valid(xx)) # TRUE
 nuts2 <- nuts[nuts$LEVL_CODE == "2",]
 nuts3 <- nuts[nuts$LEVL_CODE == "3",]
 nuts2$LEVL_CODE <- NULL
@@ -684,30 +693,38 @@ nuts3$LEVL_CODE <- NULL
 st_write(nuts2, "output/eu_template_nuts2.geojson")
 st_write(nuts3, "output/eu_template_nuts3.geojson")
 
-st_transform(frame, 4326)
+frame <- st_transform(frame, 4326)
+frame$geometry <- geom_round(frame, precision = 10000)
+frame <- st_set_crs(frame, "EPSG:4326")
 st_write(frame, "output/eu_template_frame.geojson")
 
+country <- st_transform(country, 4326)
 country <- country[,c("CNTR_ID", "CNTR_NAME")]
+country$geometry <- geom_round(country, precision = 10000)
+country <- st_set_crs(country, "EPSG:4326")
 unique(st_is_valid(country)) # TRUE
-st_transform(country, 4326)
 st_write(country, "output/eu_template_country.geojson")
 
+country_box <- st_transform(country_box, 4326)
 country_box <- country_box[,c("CNTR_ID", "CNTR_NAME")]
+country_box$geometry <- geom_round(country_box, precision = 100000)
+country_box <- st_set_crs(country_box, "EPSG:4326")
 unique(st_is_valid(country_box)) # TRUE
-st_transform(country_box, 4326)
 st_write(country_box, "output/eu_template_country_box.geojson")
 
+boxes <- st_transform(boxes, 4326)
+boxes$geometry <- geom_round(boxes, precision = 10000)
+boxes <- st_set_crs(boxes, "EPSG:4326")
 unique(st_is_valid(boxes)) # TRUE
-st_transform(boxes, 4326)
 st_write(boxes, "output/eu_template_boxes.geojson")
 
-unique(st_is_valid(borders)) # TRUE
-borders <- st_set_crs(borders, 3035)
-st_transform(borders, 4326)
+borders <- st_set_crs(borders, "EPSG:3035")
+borders <- st_transform(borders, 4326)
+borders$geometry <- geom_round(borders, precision = 100000)
 st_write(borders, "output/eu_template_borders.geojson")
 
-st_transform(cities, 4326)
-st_write(cities, "output/eu_template.cities.geojson")
+cities <- st_transform(cities, 4326)
+st_write(cities, "output/eu_template_cities.geojson")
 ```
 
 ```{r}
